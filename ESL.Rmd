@@ -68,6 +68,11 @@ train a logical vector
 #I coudln't get this to work.
 
 ```
+```{r}
+cor( prostate_scaled[,1:8] )
+
+#close but doesn't match page 50
+```
 
 
 Examples
