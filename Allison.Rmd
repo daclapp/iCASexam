@@ -1,0 +1,25 @@
+```{r}
+library(tidyverse)
+complete_separation = data.frame(x=-5:5)
+complete_separation = complete_separation %>% 
+  filter(x != 0) %>% 
+  mutate(y= if_else(x<0,0,1))
+
+complete_separation
+```
+
+```{r}
+glm(y~x,data = complete_separation,family="binomial")
+```
+
+```{r}
+quasi_complete_separation = complete_separation %>% 
+  bind_rows(data.frame(x=c(0,0),y=c(0,1))) %>% 
+  arrange(x)
+quasi_complete_separation
+```
+
+```{r}
+glm(y~x,data = quasi_complete_separation,family="binomial")
+```
+
