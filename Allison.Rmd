@@ -1,5 +1,5 @@
 ```{r}
-library(tidyverse)
+library(tidyverse,broom)
 complete_separation = data.frame(x=-5:5)
 complete_separation = complete_separation %>% 
   filter(x != 0) %>% 
@@ -20,6 +20,22 @@ quasi_complete_separation
 ```
 
 ```{r}
-glm(y~x,data = quasi_complete_separation,family="binomial")
+model = glm(y~x,data = quasi_complete_separation,family="binomial")
+tidy(model)
+augment(model)
+```
+
+```{r}
+library(glmnet)
+
+glmnet_data = quasi_complete_separation %>% mutate(x2 = runif(12))
+
+y = as.matrix(glmnet_data %>% select(y))
+x = as.matrix(glmnet_data %>% select(-y))
+mod = glmnet(x = x,y=y,family = "binomial",alpha = .1)
+
+summary(mod)
+tidy(mod)
+
 ```
 
