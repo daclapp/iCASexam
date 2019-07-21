@@ -1,0 +1,8 @@
+```{r}
+library(readr)
+library(janitor)
+library(tidyverse)
+duncan <- read_table2("~/Dropbox/Modeling/iCAS Modeling/Fox/AR3-datasets/Duncan.txt")
+duncan
+```
+
