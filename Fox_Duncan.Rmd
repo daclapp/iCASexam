@@ -2,7 +2,28 @@
 library(readr)
 library(janitor)
 library(tidyverse)
-duncan <- read_table2("~/Dropbox/Modeling/iCAS Modeling/Fox/AR3-datasets/Duncan.txt")
+duncan <- read_table2("data/Fox/Duncan.txt") #manually lableled first column so it would read in correctly
 duncan
 ```
+
+```{r}
+duncan %>% ggplot(aes(x=education,y=income))+
+  geom_point()
+```
+
+```{r}
+# https://www.rdocumentation.org/packages/VGAM/versions/1.1-1/topics/hatvalues 
+# https://stat.ethz.ch/R-manual/R-devel/library/stats/html/influence.measures.html
+
+model = lm(income ~ education,data = duncan)
+
+model_output = as_tibble(influence.measures(model)$infmat)
+model_output %>% arrange(desc(hat))
+
+# one line option:
+hatvalues(model)
+```
+
+```{r}
+
 
