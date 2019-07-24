@@ -1,0 +1,112 @@
+Hash MD5 on policy number and insured name for train/test/holdout split reproducibilty 
+```{r}
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(openssl, stringr)
+
+data = data.frame(pol_num = c('123-0','456-0'), insured_name = c('insured_1','insured_2'))
+
+data = data %>% 
+  mutate(hash = md5(str_c(pol_num,insured_name))) %>% 
+  mutate(split = as.integer(as.hexmode(substr(hash, 1, 1)) %% 2L)) #modify 2L for different splits. what if not equal?
+
+data
+```
+
+Gini and Lorenz Curve
+
+Example from paper
+```{r}
+#
+# use ChickWeight data from datasets package
+#
+cw <- as.data.frame(ChickWeight)
+set.seed(123)
+row_count <- dim(cw)[1]
+cw$count <- as.numeric(rep(1,row_count))
+cw$sample <- as.factor(sample(c("Test","Train"),
+ row_count, replace=TRUE,
+prob = c(0.3,0.7)))
+#
+# check row counts and percentages in resulting samples
+#
+summary(cw$sample)
+summary(cw$sample) / row_count
+#
+# Gini Coefficient and Lorenz Curve on training data
+#
+
+pacman::p_load(ineq,reldist)
+cw_train <- subset(cw, sample == "Train")
+train_gini <- gini(cw_train$weight)
+xtitle <- paste("Gini Coefficient =", round(train_gini,5))
+plot(Lc(cw_train$weight), col = "blue", lwd = 2,
+ main = "Training Sample", xlab = xtitle)
+round(with(cw_train, WeightedGini(weight, count, weight)), 5)
+#
+# Gini Coefficient and Lorenz Curve on test data
+#
+cw_test <- subset(cw, sample == "Test")
+test_gini <- gini(cw_test$weight)
+xtitle <- paste("Gini Coefficient =", round(test_gini,5))
+plot(Lc(cw_test$weight), col = "blue", lwd = 2,
+ main = "Test Sample", xlab = xtitle)
+round(with(cw_test, WeightedGini(weight, count, weight)), 5)
+```
+"To produce a Gini coefficient and a Lorenz curve plot for a model, it is necessary to modify the functions. Instead
+of sorting based on actual data, one sorts by predicted values. It is also advisable to include a random number
+column as a secondary sort key. If a model produces the same predicted value for large segments of the data, and
+if those segments had been previously sorted in ascending order of actual values, and if the sort function preserves
+that order, the Gini coefficient and Lorenz curve might look better than they ought to be. Introducing a random
+number column as a secondary sort key avoids that issue."
+
+
+re-written example
+
+```{r}
+pacman::p_load(caTools)
+set.seed(123) 
+
+chick_weight = as_tibble(ChickWeight) %>% 
+  mutate(count = 1) %>% #not sure this is necessary
+  mutate(train_test = if_else(sample.split(weight, SplitRatio = .75) == T,"Train","Test")) #replace sample column above
+
+#check split close to target
+nrow(chick_weight %>% filter(train_test == "Train"))/nrow(chick_weight) 
+
+chick_weight
+```
+Gini Coefficient and Lorenz Curve on training data
+```{r}
+pacman::p_load(ineq,reldist)
+
+train = chick_weight %>% filter(train_test == "Train")
+
+xtitle <- paste("Gini Coefficient =", round(gini(train$weight),5))
+plot(Lc(train$weight), col = "blue", lwd = 2,
+ main = "Training Sample", xlab = xtitle)
+round(with(train, WeightedGini(weight, count, weight)), 5)
+```
+https://stackoverflow.com/questions/22679493/how-to-plot-a-nice-lorenz-curve-for-factors-in-r-ggplot
+ ggplot(data=Distr1_df) +
+    geom_point(aes(x=p, y=L)) +
+    geom_line(aes(x=p, y=L), color="#990000") +
+    scale_x_continuous(name="Cumulative share of X", limits=c(0,1)) + 
+    scale_y_continuous(name="Cumulative share of Y", limits=c(0,1)) +
+    geom_abline()
+    
+    library(ggplot2)
+library(gglorenz)
+    ggplot(x, aes(Distr1)) + 
+  stat_lorenz() + 
+  geom_abline(color = "grey")
+
+Gini Coefficient and Lorenz Curve on test data
+```{r}
+cw_test <- subset(cw, train_test == "Test")
+test_gini <- gini(cw_test$weight)
+xtitle <- paste("Gini Coefficient =", round(test_gini,5))
+plot(Lc(cw_test$weight), col = "blue", lwd = 2,
+ main = "Test Sample", xlab = xtitle)
+round(with(cw_test, WeightedGini(weight, count, weight)), 5)
+```
+
