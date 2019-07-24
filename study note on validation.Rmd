@@ -14,44 +14,6 @@ data
 
 Gini and Lorenz Curve
 
-Example from paper
-```{r}
-#
-# use ChickWeight data from datasets package
-#
-cw <- as.data.frame(ChickWeight)
-set.seed(123)
-row_count <- dim(cw)[1]
-cw$count <- as.numeric(rep(1,row_count))
-cw$sample <- as.factor(sample(c("Test","Train"),
- row_count, replace=TRUE,
-prob = c(0.3,0.7)))
-#
-# check row counts and percentages in resulting samples
-#
-summary(cw$sample)
-summary(cw$sample) / row_count
-#
-# Gini Coefficient and Lorenz Curve on training data
-#
-
-pacman::p_load(ineq,reldist)
-cw_train <- subset(cw, sample == "Train")
-train_gini <- gini(cw_train$weight)
-xtitle <- paste("Gini Coefficient =", round(train_gini,5))
-plot(Lc(cw_train$weight), col = "blue", lwd = 2,
- main = "Training Sample", xlab = xtitle)
-round(with(cw_train, WeightedGini(weight, count, weight)), 5)
-#
-# Gini Coefficient and Lorenz Curve on test data
-#
-cw_test <- subset(cw, sample == "Test")
-test_gini <- gini(cw_test$weight)
-xtitle <- paste("Gini Coefficient =", round(test_gini,5))
-plot(Lc(cw_test$weight), col = "blue", lwd = 2,
- main = "Test Sample", xlab = xtitle)
-round(with(cw_test, WeightedGini(weight, count, weight)), 5)
-```
 "To produce a Gini coefficient and a Lorenz curve plot for a model, it is necessary to modify the functions. Instead
 of sorting based on actual data, one sorts by predicted values. It is also advisable to include a random number
 column as a secondary sort key. If a model produces the same predicted value for large segments of the data, and
@@ -60,32 +22,29 @@ that order, the Gini coefficient and Lorenz curve might look better than they ou
 number column as a secondary sort key avoids that issue."
 
 
-re-written example
+re-written example from study note code 
 
 ```{r}
 pacman::p_load(caTools)
 set.seed(123) 
 
+# chick_weight = as_tibble(ChickWeight) %>% 
+#   mutate(count = 1) %>% #not sure this is necessary. used in weightedGini function that causes an error
+#   mutate(sample = if_else(sample.split(weight, SplitRatio = .75) == T,"Train","Test")) #replace sample column above
+
+#use same code as paper for consistent results
 chick_weight = as_tibble(ChickWeight) %>% 
-  mutate(count = 1) %>% #not sure this is necessary
-  mutate(train_test = if_else(sample.split(weight, SplitRatio = .75) == T,"Train","Test")) #replace sample column above
+  mutate(count = 1) %>% 
+  mutate(sample = as.factor(sample(c("Test","Train"), nrow(ChickWeight), replace=TRUE, prob = c(0.3,0.7))))
+
 
 #check split close to target
-nrow(chick_weight %>% filter(train_test == "Train"))/nrow(chick_weight) 
+nrow(chick_weight %>% filter(sample == "Train"))/nrow(chick_weight) 
 
 chick_weight
 ```
-Gini Coefficient and Lorenz Curve on training data
-```{r}
-pacman::p_load(ineq,reldist)
 
-train = chick_weight %>% filter(train_test == "Train")
-
-xtitle <- paste("Gini Coefficient =", round(gini(train$weight),5))
-plot(Lc(train$weight), col = "blue", lwd = 2,
- main = "Training Sample", xlab = xtitle)
-round(with(train, WeightedGini(weight, count, weight)), 5)
-```
+Gini Coefficient and Lorenz Curve 
 https://stackoverflow.com/questions/22679493/how-to-plot-a-nice-lorenz-curve-for-factors-in-r-ggplot
  ggplot(data=Distr1_df) +
     geom_point(aes(x=p, y=L)) +
@@ -100,13 +59,181 @@ library(gglorenz)
   stat_lorenz() + 
   geom_abline(color = "grey")
 
-Gini Coefficient and Lorenz Curve on test data
 ```{r}
-cw_test <- subset(cw, train_test == "Test")
-test_gini <- gini(cw_test$weight)
-xtitle <- paste("Gini Coefficient =", round(test_gini,5))
-plot(Lc(cw_test$weight), col = "blue", lwd = 2,
- main = "Test Sample", xlab = xtitle)
-round(with(cw_test, WeightedGini(weight, count, weight)), 5)
+pacman::p_load(ineq,reldist)
+
+train = chick_weight %>% filter(sample == "Train")
+
+# quick output
+gini(train$weight)
+plot(Lc(train$weight))
+
+#formatted output:
+xtitle <- paste("Gini Coefficient =", round(gini(train$weight),5))
+plot(Lc(train$weight), col = "blue", lwd = 2,
+ main = "Training Sample", xlab = xtitle)
+# round(with(train, WeightedGini(weight, count, weight)), 5) # email sent to CAS. no WeightedGini function
+
+
+test = chick_weight %>% filter(sample == "Test")
+
+xtitle <- paste("Gini Coefficient =", round(gini(test$weight),5))
+plot(Lc(test$weight), col = "blue", lwd = 2,
+ main = "Testing Sample", xlab = xtitle)
 ```
+https://www.kaggle.com/c/liberty-mutual-fire-peril/discussion/9880
+http://blog.nguyenvq.com/blog/2015/09/25/calculate-the-weighted-gini-coefficient-or-auc-in-r/
+```{r}
+
+
+WeightedGini <- function(actual, weights, predicted){
+ # Modification of code posted in Kaggle by William Cukierski
+ # https://www.kaggle.com/c/liberty-mutual-fire-peril/discussion/9880
+ # actual = actual frequency, severity, loss cost
+ # corresponding weights = exposure, claim count, exposure
+ # predicted = predicted
+ df = data.frame(actual = actual, weights = weights, predicted =
+predicted)
+ # create random number sort key so ties will be resolved in random order
+ k <- length(df$actual)
+ df$rkey <- runif(k)
+ df <- df[order(df$predicted, df$rkey),]
+ df$random = cumsum((df$weights/sum(df$weights)))
+ totalPositive <- sum(df$actual * df$weights)
+ df$cumPosFound <- cumsum(df$actual * df$weights)
+ df$Lorentz <- df$cumPosFound / totalPositive
+ n <- nrow(df)
+ gini <- sum(df$Lorentz[-1]*df$random[-n]) - sum(df$Lorentz[-n] * df$random[-1])
+ return(gini)
+}
+
+# Lorenz Curve function that uses predicted values for sorting
+LorenzCurve2 <- function (x, n = rep(1, length(x)), xhat, plot = FALSE)
+{
+ # Modification of Lc function in ineq package
+ # x = actual (frequency, severity, loss cost)
+ # xhat = predicted (frequency, severity, loss cost)
+ # n = weights (exposure, claims, exposure)
+ # data will be sorted in ascending order of prediction
+ # Lorenz Curve will be plotted based on actual values
+ ina <- !is.na(x)
+ n <- n[ina]
+ x <- as.numeric(x)[ina]
+ xhat <- as.numeric(xhat)[ina]
+ k <- length(x)
+ # create random number sort key so ties will be resolved in random order
+ #rkey <- runif(k)
+ #o <- order(xhat, rkey)
+ o <- order(xhat)
+ x <- x[o]
+ n <- n[o]
+ x <- n * x
+ p <- cumsum(n)/sum(n)
+ L <- cumsum(x)/sum(x)
+ p <- c(0, p)
+ L <- c(0, L)
+ L2 <- L * mean(x)/mean(n)
+ Lc <- list(p, L, L2)
+ names(Lc) <- c("p", "L", "L.general")
+ class(Lc) <- "Lc"
+ if (plot)
+ plot(Lc)
+ Lc
+}
+```
+
+```{r}
+round(with(train, WeightedGini(weight, count, weight)), 5)
+```
+
+```{r}
+pacman::p_load(randomForest)
+
+set.seed(456)
+model_rf = randomForest(weight ~ Diet + Time, data = train)
+
+train_augment = train %>% 
+  mutate(weight_p = predict(model_rf, train))
+
+# debugonce(WeightedGini)
+train_pgin = round(with(train_augment, WeightedGini(weight, count, weight_p)), 5)
+train_pgin
+
+xtitle = paste("Random Forest Gini Coefficient =",
+ round(train_pgin,5))
+
+with(train_augment, plot(LorenzCurve2(weight, count, weight_p),
+ col="blue", lwd=2,
+ main="Training Sample", xlab=xtitle))
+
+# slightly different gini than the paper. train % same as source code. newer version of random forest?
+
+
+# Predicted on Test Sample
+test_augment = test %>% 
+  mutate(weight_p = predict(model_rf, test))
+
+test_pgin <- round(with(test_augment,
+ WeightedGini(weight, count, weight_p)), 5)
+
+xtitle <- paste("Random Forest Gini Coefficient =",
+ round(test_pgin,5))
+
+with(test_augment, plot(LorenzCurve2(weight, count, weight_p),
+ col="blue", lwd=2,
+ main="Test Sample", xlab=xtitle))
+
+norm_gini_train = round(train_pgin/gini(train$weight),5)
+norm_gini_test = round(test_pgin,5)/round(gini(test$weight),5)
+message('Normalized Gini on training sample = ',round(train_pgin,5),"/",round(gini(train$weight),5)," = ",norm_gini_train)
+message('Normalized Gini on testing sample = ',round(test_pgin,5),"/",round(gini(test$weight),5)," = ",norm_gini_test)
+message('Difference in normalized Gini = ',norm_gini_train - norm_gini_test) #or cat() but then need to insert page breaks
+
+
+```
+
+#code yet to be recreated:
+```{r}
+
+
+#
+# Fit linear regression training data
+#
+
+model_ols = lm(weight ~ Time,
+ data = train)
+# Predicted on Training Sample
+
+train_augment = train %>% 
+  mutate(weight_p = predict(model_ols, train))
+
+train_pgin <- round(with(train_augment,
+ WeightedGini(weight, count, weight_p)), 5)
+
+xtitle <- paste("Linear Model Gini Coefficient =",
+ round(train_pgin,5))
+
+with(train_augment, plot(LorenzCurve2(weight, count, weight_p),
+ col="blue", lwd=2,
+main="Training Sample", xlab=xtitle))
+# Predicted on Test Sample
+test_augment = test %>% 
+  mutate(weight_p = predict(model_ols, test))
+
+test_pgin <- round(with(test_augment,
+ WeightedGini(weight, count, weight_p)), 5)
+xtitle <- paste("Linear Model Gini Coefficient =",
+ round(test_pgin,5))
+with(test_augment, plot(LorenzCurve2(weight, count, weight_p),
+ col="blue", lwd=2,
+ main="Test Sample", xlab=xtitle))
+
+norm_gini_train = round(train_pgin/gini(train$weight),5)
+norm_gini_test = round(test_pgin,5)/round(gini(test$weight),5)
+message('Normalized Gini on training sample = ',round(train_pgin,5),"/",round(gini(train$weight),5)," = ",norm_gini_train)
+message('Normalized Gini on testing sample = ',round(test_pgin,5),"/",round(gini(test$weight),5)," = ",norm_gini_test)
+message('Difference in normalized Gini = ',norm_gini_train - norm_gini_test) #or cat() but then need to insert page breaks
+
+```
+PICKUP ON LIFT CHARTS
 
