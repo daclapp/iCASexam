@@ -8,6 +8,7 @@ data = data.frame(pol_num = c('123-0','456-0'), insured_name = c('insured_1','in
 data = data %>% 
   mutate(hash = md5(str_c(pol_num,insured_name))) %>% 
   mutate(split = as.integer(as.hexmode(substr(hash, 1, 1)) %% 2L)) #modify 2L for different splits. what if not equal?
+  #can also split by sorting on hash or cutoff values
 
 data
 ```
