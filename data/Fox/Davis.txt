@@ -1,4 +1,4 @@
- sex weight height reportedWeight reportedHeight
+row sex weight height reportedWeight reportedHeight
    1 M  77 182  77 180                                                          
    2 F  58 161  51 159                                                          
    3 F  53 161  54 158                                                          

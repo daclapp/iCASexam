@@ -1,0 +1,10 @@
+```{r}
+
+install.packages("car", dependencies = T)
+```
+
+```{r}
+source("load_packages.R")
+library(car)
+```
+

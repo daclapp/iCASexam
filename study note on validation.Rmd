@@ -8,7 +8,7 @@ data = data.frame(pol_num = c('123-0','456-0'), insured_name = c('insured_1','in
 data = data %>% 
   mutate(hash = md5(str_c(pol_num,insured_name))) %>% 
   mutate(split = as.integer(as.hexmode(substr(hash, 1, 1)) %% 2L)) #modify 2L for different splits. what if not equal?
-  #can also split by sorting on hash or cutoff values
+  #can also split by sorting on hash or cutoff values. It can actually be better to have your data reassign sample though so you would notice your models change drastically and your data may be noisier than you think. 
 
 data
 ```
@@ -85,28 +85,26 @@ plot(Lc(test$weight), col = "blue", lwd = 2,
 https://www.kaggle.com/c/liberty-mutual-fire-peril/discussion/9880
 http://blog.nguyenvq.com/blog/2015/09/25/calculate-the-weighted-gini-coefficient-or-auc-in-r/
 ```{r}
-
-
-WeightedGini <- function(actual, weights, predicted){
- # Modification of code posted in Kaggle by William Cukierski
+WeightedGini = function(actual,weights,predicted){
+   # Modification of study note on validation for icas exam which was modified from post in Kaggle by William Cukierski
  # https://www.kaggle.com/c/liberty-mutual-fire-peril/discussion/9880
  # actual = actual frequency, severity, loss cost
  # corresponding weights = exposure, claim count, exposure
  # predicted = predicted
- df = data.frame(actual = actual, weights = weights, predicted =
-predicted)
- # create random number sort key so ties will be resolved in random order
- k <- length(df$actual)
- df$rkey <- runif(k)
- df <- df[order(df$predicted, df$rkey),]
- df$random = cumsum((df$weights/sum(df$weights)))
- totalPositive <- sum(df$actual * df$weights)
- df$cumPosFound <- cumsum(df$actual * df$weights)
- df$Lorentz <- df$cumPosFound / totalPositive
- n <- nrow(df)
- gini <- sum(df$Lorentz[-1]*df$random[-n]) - sum(df$Lorentz[-n] * df$random[-1])
- return(gini)
+  set.seed(456)
+  temp = data.frame(actual = actual, weights = weights, predicted = predicted)
+  temp = temp %>% 
+    mutate(random_key = runif(nrow(temp))) %>%  # create random number sort key so ties will be resolved in random order  
+    arrange(predicted,random_key) %>% 
+    mutate(random = cumsum(weights/sum(weights)),
+           cumPosFound = cumsum(actual*weights),
+           Lorentz = cumPosFound / max(cumPosFound))
+  gini = sum(temp$Lorentz[-1]*temp$random[-nrow(temp)]) - sum(temp$Lorentz[-nrow(temp)] * temp$random[-1])
+  return(gini)
 }
+```
+
+```{r}
 
 # Lorenz Curve function that uses predicted values for sorting
 LorenzCurve2 <- function (x, n = rep(1, length(x)), xhat, plot = FALSE)
@@ -141,6 +139,47 @@ LorenzCurve2 <- function (x, n = rep(1, length(x)), xhat, plot = FALSE)
  plot(Lc)
  Lc
 }
+
+
+ 
+#debugonce(LorenzCurve2)
+with(train_augment, plot(LorenzCurve2(weight, count, weight_p),
+ col="blue", lwd=2,
+ main="Training Sample", xlab=xtitle))
+
+```
+
+```{r}
+LorenzCurve_DC <- function (data = NULL, actual = NULL, weights = NULL, predicted = NULL, plot = FALSE)
+{
+ # Modification of Lc function in ineq package
+ # actual = x = actual (frequency, severity, loss cost)
+ # weights = n = weights (exposure, claims, exposure)
+ # predicted = xhat = predicted (frequency, severity, loss cost)
+  
+ # data will be sorted in ascending order of prediction
+ # Lorenz Curve will be plotted based on actual values
+  
+  #add a check if actual and predicted are numeric
+  
+ data = data %>% 
+   filter(!is.na(actual)) %>% 
+   arrange_(predicted) %>% 
+   mutate(totalPo sitive = actual * weights)
+   
+  
+ return(data)
+}
+
+#debugonce(LorenzCurve_DC)
+LorenzCurve_DC(data = train_augment, actual = "weight", weights = "count", predicted = "weight_p")
+
+#  actual = "weight"
+#  weights = "count"
+#  predicted = "weight_p"
+# train_augment %>% 
+#   filter(!is.na(actual)) %>% 
+#    arrange_(predicted)
 ```
 
 ```{r}
@@ -156,13 +195,14 @@ model_rf = randomForest(weight ~ Diet + Time, data = train)
 train_augment = train %>% 
   mutate(weight_p = predict(model_rf, train))
 
-# debugonce(WeightedGini)
+debugonce(WeightedGini)
 train_pgin = round(with(train_augment, WeightedGini(weight, count, weight_p)), 5)
-train_pgin
+
 
 xtitle = paste("Random Forest Gini Coefficient =",
  round(train_pgin,5))
 
+#debugonce(LorenzCurve2)
 with(train_augment, plot(LorenzCurve2(weight, count, weight_p),
  col="blue", lwd=2,
  main="Training Sample", xlab=xtitle))
@@ -174,8 +214,7 @@ with(train_augment, plot(LorenzCurve2(weight, count, weight_p),
 test_augment = test %>% 
   mutate(weight_p = predict(model_rf, test))
 
-test_pgin <- round(with(test_augment,
- WeightedGini(weight, count, weight_p)), 5)
+test_pgin <- round(with(test_augment,WeightedGini(weight, count, weight_p)), 5)
 
 xtitle <- paste("Random Forest Gini Coefficient =",
  round(test_pgin,5))
@@ -193,9 +232,8 @@ message('Difference in normalized Gini = ',norm_gini_train - norm_gini_test) #or
 
 ```
 
-#code yet to be recreated:
-```{r}
 
+```{r}
 
 #
 # Fit linear regression training data
@@ -208,8 +246,9 @@ model_ols = lm(weight ~ Time,
 train_augment = train %>% 
   mutate(weight_p = predict(model_ols, train))
 
+set.seed(456)
 train_pgin <- round(with(train_augment,
- WeightedGini(weight, count, weight_p)), 5)
+ WeightedGini(actual = weight, weights = count, predicted = weight_p)), 5)
 
 xtitle <- paste("Linear Model Gini Coefficient =",
  round(train_pgin,5))
@@ -222,7 +261,9 @@ test_augment = test %>%
   mutate(weight_p = predict(model_ols, test))
 
 test_pgin <- round(with(test_augment,
- WeightedGini(weight, count, weight_p)), 5)
+ WeightedGini(actual = weight, weights = count, predicted = weight_p)), 5)
+
+
 xtitle <- paste("Linear Model Gini Coefficient =",
  round(test_pgin,5))
 with(test_augment, plot(LorenzCurve2(weight, count, weight_p),
@@ -230,11 +271,15 @@ with(test_augment, plot(LorenzCurve2(weight, count, weight_p),
  main="Test Sample", xlab=xtitle))
 
 norm_gini_train = round(train_pgin/gini(train$weight),5)
-norm_gini_test = round(test_pgin,5)/round(gini(test$weight),5)
+norm_gini_test = round(test_pgin/gini(test$weight),5)
 message('Normalized Gini on training sample = ',round(train_pgin,5),"/",round(gini(train$weight),5)," = ",norm_gini_train)
 message('Normalized Gini on testing sample = ',round(test_pgin,5),"/",round(gini(test$weight),5)," = ",norm_gini_test)
 message('Difference in normalized Gini = ',norm_gini_train - norm_gini_test) #or cat() but then need to insert page breaks
 
+# per ?gini() weights were originally created if it's a sample and you are inputting the mean income. weights would be number of people in that group. 
 ```
+
+
 PICKUP ON LIFT CHARTS
+
 
