@@ -1,10 +1,55 @@
 ```{r}
+source("load_packages.R")
 
 install.packages("car", dependencies = T)
+library(car)
+
+Prestige
 ```
 
 ```{r}
-source("load_packages.R")
-library(car)
+data(Prestige)
+
+#add column name to first column:
+Prestige <- cbind(as_tibble(rownames(Prestige)), Prestige) %>% 
+  rename(job = value) #can't wrap in as_tibble to drop row names as this messes up the labeling on Avplots 
+
+Prestige
+```
+
+```{r}
+prestige.mod.2 = lm(prestige ~ education + income + type, data = Prestige)
+```
+
+```{r}
+#all predictors and overall
+residualPlots(prestige.mod.2)
+
+# no predictors, only overall
+# residualPlots(prestige.mod.2, ~1) 
+
+#only one predictor
+# residualPlots(prestige.mod.2, ~education , fitted = F) 
+```
+
+Variation of basic residual plot above:
+```{r}
+#Univariate view:
+marginalModelPlots(prestige.mod.2)
+
+```
+
+Added-variable plots (partial-regression plots). Partial relationship adjusted for all other variables in the model (as opposed to univariate above)
+```{r}
+avPlots(prestige.mod.2)#, id.n=2)#, id.cex=.6)
+```
+
+```{r}
+#page 295
+data(Duncan)
+Duncan
+```
+```{r}
+
 ```
 
