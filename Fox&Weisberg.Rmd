@@ -4,7 +4,7 @@ source("load_packages.R")
 install.packages("car", dependencies = T)
 library(car)
 
-Prestige
+Prestige #Candian occupation data
 ```
 
 ```{r}
@@ -46,10 +46,65 @@ avPlots(prestige.mod.2)#, id.n=2)#, id.cex=.6)
 
 ```{r}
 #page 295
-data(Duncan)
+data(Duncan) #US occupation data
 Duncan
 ```
 ```{r}
-
+mod.duncan = lm(prestige ~ income + education, data = Duncan)
+qqPlot(mod.duncan, id.n=3)
 ```
+p 296
+```{r}
+outlierTest(mod.duncan)
+```
+
+hat-values
+```{r}
+suppressWarnings(influenceIndexPlot(mod.duncan , id.n=3))
+```
+```{r}
+suppressWarnings(influencePlot(mod.duncan, id.n=3))
+```
+
+```{r}
+mod.duncan.2 = update(mod.duncan, subset = rownames(Duncan) != "minister")
+compareCoefs(mod.duncan, mod.duncan.2)
+```
+
+```{r}
+mod.duncan.3 = update(mod.duncan, subset = !(rownames(Duncan) %in% c("conductor","minister")))
+compareCoefs(mod.duncan, mod.duncan.2, mod.duncan.3, se=F)
+```
+
+p 300
+```{r}
+suppressWarnings(avPlots(mod.duncan, id.n = 3))
+```
+```{r}
+dfbs_duncan = as_tibble(data.frame(rownames = row.names(dfbetas(mod.duncan)),dfbetas(mod.duncan)))
+dfbs_duncan
+```
+
+```{r}
+library(plotly)
+
+dfbs_duncan %>% 
+  ggplot(aes(x = income, y = education))+
+  geom_point()+
+  geom_text(data = dfbs_duncan %>% filter(income < -.5 | income > .4),aes(income,education,label=rownames))
+
+
+ggplotly(dfbs_duncan %>% 
+  ggplot(aes(x = income, y = education))+
+  geom_point(aes(text = rownames))
+)
+```
+
+```{r}
+#manual filter based on graph above to get rownames:
+dfbs_duncan %>% 
+  filter(education > 1)
+```
+
+
 
