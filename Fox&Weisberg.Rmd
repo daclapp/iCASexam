@@ -86,7 +86,6 @@ dfbs_duncan
 ```
 
 ```{r}
-library(plotly)
 
 dfbs_duncan %>% 
   ggplot(aes(x = income, y = education))+
@@ -100,11 +99,95 @@ ggplotly(dfbs_duncan %>%
 )
 ```
 
+
 ```{r}
 #manual filter based on graph above to get rownames:
 dfbs_duncan %>% 
   filter(education > 1)
 ```
 
+p304
+```{r}
+mod.ornstein = lm(interlocks +1 ~ log(assets) + nation + sector, data = Ornstein)
+# par(mfrow=c(1,2))
+qqPlot(mod.ornstein, id.n=0)
+plot(density(rstudent(mod.ornstein)))
 
+```
+
+
+```{r}
+boxCox(mod.ornstein, lambda = seq(0,.6, by=.1))
+#max lambda approx .22. 
+```
+similar to box Cox above but produces numeric instead of graphical output:
+```{r}
+p1 = powerTransform(mod.ornstein)
+summary(p1)
+```
+
+```{r}
+# Ornstein1_old = transform(Ornstein,
+#                       y1=bcPower(interlocks +1, coef(p1)),
+#                       y1round = bcPower(interlocks+1, coef(p1,round=T))
+#                       ) #from the book
+
+Ornstein1 = Ornstein %>% 
+  mutate(#y1=bcPower(interlocks +1, coef(p1)), #not used. same results as rounded below
+         interlocks_transform = bcPower(interlocks+1, lambda = coef(p1,round=T)) 
+          )
+Ornstein1
+# summary(Ornstein1)
+
+```
+
+```{r}
+mod.ornstein.trans = update(mod.ornstein, interlocks_transform ~., data = Ornstein1)
+
+qqPlot(mod.ornstein.trans, id.n=0)
+plot(density(rstudent(mod.ornstein.trans)))
+```
+
+constructed variable plot p 307
+```{r}
+mod.orstein.constr_var = update(mod.ornstein, .~. +boxCoxVariable(interlocks+1))
+summary(mod.orstein.constr_var) #below is from book, but this is easier code and you just find that variable in table
+# summary(mod.orstein.constr_var)$coef["boxCoxVariable(interlocks + 1)",]#drop = F]
+
+```
+
+```{r}
+
+# avPlots(mod.orstein.constr_var) #have to hit enter in console but produces all vars
+avPlots(mod.orstein.constr_var, variable = "boxCoxVariable(interlocks + 1)")
+
+
+```
+
+transforming predictors
+compononet-plus-residual plots (or partial-residual-plots)
+```{r}
+prestige.mod.3 = update(prestige.mod.2, ~. - type + women)
+crPlots(prestige.mod.3,order=2) #book says this is nearly identical to order=1 and CERES plots
+crPlots(prestige.mod.3,order=1)
+```
+
+```{r}
+prestige.mod.4 = update(prestige.mod.3, .~. +log2(income) - income)
+crPlots(prestige.mod.4,order=2)
+```
+
+```{r}
+prestige.mod.5 = update(prestige.mod.4, .~. - women + poly(women,2))
+crPlots(prestige.mod.5,order=1)
+summary(prestige.mod.4)$coef
+summary(prestige.mod.5)$coef #why does poly have to coefs?
+```
+p 314
+```{r}
+residualPlots(mod.ornstein, ~1 ,fitted = T, id.n=0,quadratic=F,tests=F)
+```
+```{r}
+spreadLevelPlot(mod.ornstein)
+```
 
