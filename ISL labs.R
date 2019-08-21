@@ -699,7 +699,7 @@ plot(gam.lr.s,se=T,col="green")
 
 # Fitting Classification Trees
 
-library(tree)
+library(tree) #requires R 3.6.0 or higher
 library(ISLR)
 attach(Carseats)
 High=ifelse(Sales<=8,"No","Yes")

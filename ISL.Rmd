@@ -1,17 +1,98 @@
 
 ```{r}
 source("load_packages.R")
-library(ISLR) #for data used in book  https://cran.r-project.org/web/packages/ISLR/ISLR.pdf
+pacman::p_load(ISLR, tree, MASS, randomForest, gbm) #for data used in book  https://cran.r-project.org/web/packages/ISLR/ISLR.pdf
 #ISLR::  #type this and it will autofill all datasets in this package
-
-Auto = ISLR::Auto
+#library(tree) #requires R 3.6.0 or higher
 
 ```
+
+Solutions from students here: https://github.com/asadoughi/stat-learning
+course based on this book: https://lagunita.stanford.edu/courses/HumanitiesSciences/StatLearning/Winter2016/about
 
 Also see ISL labs.R in this repo
 Also https://www.alsharif.info/iom530 for more examples
 
+Chapter 8: Classification Trees
+```{r}
+Carseats = ISLR::Carseats
+
+Carseats = Carseats %>% 
+  mutate(High = if_else(Sales <=8, "No","Yes"))
+
+Carseats
+```
+
+
+```{r}
+Carseats_tree = tree(High ~ . -Sales, Carseats)
+summary(Carseats_tree) #causes error. tree package changed?
+plot(Carseats_tree)
+```
+
+Re-write Chapter 8 Lab for regression tree:
+```{r}
+set.seed(1)
+train = sample(1:nrow(Boston), nrow(Boston)/2)
+tree.boston=tree(medv~.,Boston,subset=train)
+summary(tree.boston)
+plot(tree.boston)
+text(tree.boston,pretty=0)
+cv.boston=cv.tree(tree.boston)
+plot(cv.boston$size,cv.boston$dev,type='b')
+prune.boston=prune.tree(tree.boston,best=5)
+plot(prune.boston)
+text(prune.boston,pretty=0)
+yhat=predict(tree.boston,newdata=Boston[-train,])
+boston.test=Boston[-train,"medv"]
+plot(yhat,boston.test)
+abline(0,1)
+mean((yhat-boston.test)^2)
+```
+
+
+Chapter 8: Regression Trees
+```{r}
+Hitters = ISLR::Hitters
+# Hitters = Hitters %>% 
+#   mutate(log_salary = log(Salary))
+
+Hitters
+```
+
+Figure 8.1
 ```{r}
 
+
+Hitters_tree = tree(log(Salary) ~ Hits + Years ,Hitters)#,subset=train)
+summary(Hitters_tree)
+
+plot(Hitters_tree)
+text(Hitters_tree) #,pretty=0)  #doesn't seem to do anything
+#did they change a parameter to get less leafs?
+
+prune.tree(Hitters_tree)
+```
+
+
+```{r}
+cv.Hitters=cv.tree(tree.Hitters)
+plot(cv.Hitters$size,cv.Hitters$dev,type='b')
+prune.Hitters=prune.tree(tree.Hitters,best=5)
+
+plot(prune.Hitters)
+text(prune.Hitters,pretty=0)
+
+yhat=exp(predict(tree.Hitters,newdata=Hitters[-train,]))
+set.seed(1)
+train = sample(1:nrow(Hitters), nrow(Hitters)/2)
+Hitters.test=Hitters[-train,"Salary"] #not working
+plot(yhat,Hitters.test)
+abline(0,1)
+mean((yhat-Hitters.test)^2)
+```
+
+
+```{r}
 ```
 
