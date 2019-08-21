@@ -1,0 +1,17 @@
+
+```{r}
+source("load_packages.R")
+library(ISLR) #for data used in book  https://cran.r-project.org/web/packages/ISLR/ISLR.pdf
+#ISLR::  #type this and it will autofill all datasets in this package
+
+Auto = ISLR::Auto
+
+```
+
+Also see ISL labs.R in this repo
+Also https://www.alsharif.info/iom530 for more examples
+
+```{r}
+
+```
+

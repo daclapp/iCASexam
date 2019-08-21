@@ -1,6 +1,11 @@
+
+```{r}
 library(ggplot2)
 library(cowplot)
 library(randomForest)
+
+
+```
  
 ## NOTE: The data used in this demo comes from the UCI machine learning
 ## repository.
@@ -8,8 +13,9 @@ library(randomForest)
 ## Specifically, this is the heart disease data set.
 ## http://archive.ics.uci.edu/ml/datasets/Heart+Disease
  
+
+```{r}
 url <- "http://archive.ics.uci.edu/ml/machine-learning-databases/heart-disease/processed.cleveland.data"
- 
 data <- read.csv(url, header=FALSE)
  
 #####################################
@@ -245,3 +251,5 @@ ggplot(data=mds.data, aes(x=X, y=Y, label=Sample)) +
   xlab(paste("MDS1 - ", mds.var.per[1], "%", sep="")) +
   ylab(paste("MDS2 - ", mds.var.per[2], "%", sep="")) +
   ggtitle("MDS plot using (1 - Random Forest Proximities)")
+```
+ 
