@@ -1,10 +1,16 @@
-```{r}
+---
+title: "Fox & Weisberg "
+output: html_document
+---
+
+```{r setup, include = F}
+
 source("load_packages.R")
 
-install.packages("car", dependencies = T)
+# install.packages("car", dependencies = T)
 library(car)
 
-Prestige #Candian occupation data
+# carPrestige #Candian occupation data
 ```
 
 ```{r}
@@ -190,4 +196,37 @@ residualPlots(mod.ornstein, ~1 ,fitted = T, id.n=0,quadratic=F,tests=F)
 ```{r}
 spreadLevelPlot(mod.ornstein)
 ```
+
+p 315 collinearity
+```{r}
+data(Ericksen)
+Ericksen
+```
+
+```{r}
+model_census = lm(undercount ~ . ,data=Ericksen)
+summary(model_census)
+
+model_census_2 = lm(undercount ~ . -highschool - poverty - housing - city,data=Ericksen)
+summary(model_census_2)
+```
+Check for collinearity (vif > 4)
+```{r}
+vif(model_census) #can also be called on glms
+
+```
+
+```{r}
+Ericksen %>% pull(undercount) %>% hist
+model_census_glm = glm(undercount ~ . , data = Ericksen)
+model_census_glm #same as lm() above since family not specified
+
+```
+
+```{r}
+vif(model_census_glm)
+```
+
+
+
 
