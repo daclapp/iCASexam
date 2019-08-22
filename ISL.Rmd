@@ -50,6 +50,78 @@ abline(0,1)
 mean((yhat-boston.test)^2)
 ```
 
+```{r}
+set.seed(1)
+boston = MASS::Boston %>% 
+  mutate(split = as.factor(sample(c("test","train"), nrow(Boston), replace=T, prob = c(0.5,0.5))))
+
+boston
+
+train = boston %>% filter(split == "train") # can't do directly in tree() call below or cv.tree will throw an error
+
+```
+
+```{r}
+
+boston_tree = tree(medv ~ . ,train)
+summary(boston_tree)
+
+plot(boston_tree)
+text(boston_tree,pretty=0)
+
+boston_cv = cv.tree(boston_tree)
+plot(cv.boston$size,cv.boston$dev,type='b') #online cource had ,FUN = prune.misclass on carseats data
+boston_tree_prune = prune.tree(boston_tree,best=5)
+
+
+plot(boston_tree_prune)
+text(boston_tree_prune,pretty=0)
+
+
+boston_preds = boston %>% 
+  mutate(yhat = predict(boston_tree_prune,newdata = boston )) %>% 
+  filter(split == "test") 
+
+
+plot(boston_preds$yhat,boston_preds$medv)
+abline(0,1)
+ 
+# boston_preds %>% 
+#   ggplot(aes(yhat,medv))+
+#   geom_point()+
+#   geom_abline()
+
+print(paste0("RMSE: ",sqrt(mean((boston_preds$yhat-boston_preds$medv)^2)))) #on same scale as orig data, why not always use this instead of two below?
+print(paste0("MSE: ",mean((boston_preds$yhat-boston_preds$medv)^2)))
+print(paste0("SSE: ",sum((boston_preds$yhat-boston_preds$medv)^2)))
+
+
+```
+
+
+```{r}
+# Bagging and Random Forests
+
+boston_bag = randomForest(medv ~ . ,data = train,mtry = 13, importance = T)
+boston_bag
+
+boston_preds = boston %>% 
+  mutate(yhat = predict(boston_bag,newdata = boston )) %>% 
+  filter(split == "test") 
+# importance(boston_bag)
+varImpPlot(boston_bag)
+
+plot(boston_preds$yhat,boston_preds$medv)
+abline(0,1)
+
+
+print(paste0("RMSE: ",sqrt(mean((boston_preds$yhat-boston_preds$medv)^2)))) #on same scale as orig data, why not always use this instead of two below?
+print(paste0("MSE: ",mean((boston_preds$yhat-boston_preds$medv)^2)))
+print(paste0("SSE: ",sum((boston_preds$yhat-boston_preds$medv)^2)))
+
+
+```
+
 
 Chapter 8: Regression Trees
 ```{r}
