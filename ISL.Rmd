@@ -1,7 +1,10 @@
 
 ```{r}
-source("load_packages.R")
-pacman::p_load(ISLR, tree, MASS, randomForest, gbm) #for data used in book  https://cran.r-project.org/web/packages/ISLR/ISLR.pdf
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(ISLR, tree, MASS, randomForest, gbm)
+source("load_packages.R") #load these last so overwrite functions other packages (like dplyr::select)
+
+ #for data used in book  https://cran.r-project.org/web/packages/ISLR/ISLR.pdf
 #ISLR::  #type this and it will autofill all datasets in this package
 #library(tree) #requires R 3.6.0 or higher
 
@@ -26,8 +29,8 @@ Carseats
 
 ```{r}
 Carseats_tree = tree(High ~ . -Sales, Carseats)
-summary(Carseats_tree) #causes error. tree package changed?
-plot(Carseats_tree)
+# summary(Carseats_tree) #causes error. tree package changed?
+# plot(Carseats_tree)
 ```
 
 Re-write Chapter 8 Lab for regression tree:
@@ -121,6 +124,69 @@ print(paste0("SSE: ",sum((boston_preds$yhat-boston_preds$medv)^2)))
 
 
 ```
+
+boosting page 330
+
+Boosting
+--------
+Boosting builds lots of smaller trees. Unlike random forests, each new tree in boosting tries to patch up the deficiencies of the current ensemble.
+```{r}
+pacman::p_load(gbm)
+
+
+boston_boost = gbm(medv ~ . ,
+                   data=train,
+                   distribution="gaussian",
+                   n.trees=10000,
+                   shrinkage=0.01,
+                   interaction.depth=4)
+# distribution="gaussian" for regression
+# distribution="bernoulli" for binary classification
+
+summary(boston_boost)
+
+#partial dependence plots. marginal effect of the var on response after integrating out the other variables. 
+plot(boston_boost,i="lstat")
+plot(boston_boost,i="rm")
+
+
+```
+"Lets make a prediction on the test set. With boosting, the number of trees is a tuning parameter, and if we have too many we can overfit. So we should use cross-validation to select the number of trees. We will leave this as an exercise. Instead, we will compute the test error as a function of the number of trees, and make a plot."
+
+```{r}
+
+#rewrite as for loop of n.trees, then gather those columns to plot. 
+predmat = predict(boston_boost,
+                  newdata = boston %>% filter(split == "test"), 
+                  n.trees = seq(from=100,to=10000,by=100))
+
+test_num_trees = boston %>%
+  filter(split == "test") %>% 
+  select(medv) %>% 
+  bind_cols(as_tibble(predmat)) %>% 
+  gather(key = "num_trees", value = "yhat", -medv) %>% 
+  group_by(num_trees) %>% 
+  summarize(MSE = mean((yhat-medv)^2))
+
+plot(test_num_trees$num_trees,test_num_trees$MSE)
+
+
+#make prediction and calc MSE
+
+boston_preds = boston %>% 
+  mutate(yhat = predict(boston_boost,newdata = boston ,n.trees = 6000)) %>% 
+  filter(split == "test") 
+
+
+print(paste0("RMSE: ",sqrt(mean((boston_preds$yhat-boston_preds$medv)^2)))) #on same scale as orig data, why not always use this instead of two below?
+print(paste0("MSE: ",mean((boston_preds$yhat-boston_preds$medv)^2)))
+print(paste0("SSE: ",sum((boston_preds$yhat-boston_preds$medv)^2)))
+```
+
+
+
+
+
 
 
 Chapter 8: Regression Trees
