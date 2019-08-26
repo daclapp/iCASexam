@@ -1,0 +1,56 @@
+
+```{r}
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(ISLR)
+source("load_packages.R") #load these last so overwrite functions other packages (like dplyr::select)
+
+```
+
+5.3.1 validation set approach
+```{r}
+set.seed(1)
+train_row_nums = sample(1:392,196) # same as sample(392,196), but this is more cohesive when it is used like sample(c("Train","Test"),196,replace=T)
+train_row_nums
+
+#Not sure why this data has 397 rows and textbook says it had 392
+```
+
+```{r}
+auto = ISLR::Auto
+
+lm_fit = lm(mpg ~ horsepower,
+            data = auto,
+            subset = train_row_nums)
+
+#calc MSE on test:
+auto_preds = auto %>% 
+  mutate(mpg_pred = predict(lm_fit, newdata = auto ),
+         SE = (mpg - mpg_pred)^2) %>% 
+    slice(-train_row_nums) #do last so don't have to slice inside predict() too
+
+mean(auto_preds$SE)
+
+# mean((auto$mpg - predict(lm_fit,newdata = auto))[-train]^2) book method, I get same answer here, but doesn't match book answer
+```
+
+```{r}
+lm_fit_2 = lm(mpg ~ poly(horsepower,2),
+              data = auto,
+              subset = train_row_nums)
+
+mean((auto$mpg - predict(lm_fit_2,newdata = auto))[-train]^2) 
+              
+lm_fit_3 = lm(mpg ~ poly(horsepower,3),
+              data = auto,
+              subset = train_row_nums)
+
+mean((auto$mpg - predict(lm_fit_3,newdata = auto))[-train]^2) 
+          
+```
+
+5.3.2 Leave-One-Out Cross-Validation
+```{r}
+
+```
+
+
