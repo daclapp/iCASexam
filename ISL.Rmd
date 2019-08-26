@@ -57,6 +57,7 @@ mean((yhat-boston.test)^2)
 set.seed(1)
 boston = MASS::Boston %>% 
   mutate(split = as.factor(sample(c("test","train"), nrow(Boston), replace=T, prob = c(0.5,0.5))))
+#or fold = ntile(sample(1:1000,nrow(combined2),replace=T),5)) for cross validation to guarentee equal bucketrs. Could also use for above just have to replace ntile with something that gets x percentile
 
 boston
 
