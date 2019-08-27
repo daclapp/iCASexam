@@ -1,7 +1,7 @@
 
 ```{r}
 if (!require("pacman")) install.packages("pacman")
-pacman::p_load(ISLR)
+pacman::p_load(ISLR,boot)
 source("load_packages.R") #load these last so overwrite functions other packages (like dplyr::select)
 
 ```
@@ -38,19 +38,52 @@ lm_fit_2 = lm(mpg ~ poly(horsepower,2),
               data = auto,
               subset = train_row_nums)
 
-mean((auto$mpg - predict(lm_fit_2,newdata = auto))[-train]^2) 
+mean((auto$mpg - predict(lm_fit_2,newdata = auto))[-train_row_nums]^2) 
               
 lm_fit_3 = lm(mpg ~ poly(horsepower,3),
               data = auto,
               subset = train_row_nums)
 
-mean((auto$mpg - predict(lm_fit_3,newdata = auto))[-train]^2) 
+mean((auto$mpg - predict(lm_fit_3,newdata = auto))[-train_row_nums]^2) 
           
 ```
 
 5.3.2 Leave-One-Out Cross-Validation
 ```{r}
-
+glm_fit = glm(mpg ~ horsepower,
+              data = auto) #no family so fits a lm()
+cv_error = cv.glm(auto,glm_fit)
+cv_error$delta #cross validation results. same as mean of MSE of loocv
 ```
 
+
+```{r}
+cv_error = rep(0,5)
+for (i in 1:5){
+  glm_fit = glm(mpg ~ poly(horsepower,i),
+                data = auto)
+  cv_error[i] = cv.glm(auto,glm_fit)$delta[1] #delta 1 and 2 basically the same for loocv
+}
+cv_error
+plot(cv_error)
+```
+
+k-fold cross validation
+```{r}
+
+#only diff from loocv above is k=10 in cv.glm
+set.seed(17)
+cv_error_10 = rep(0,10)
+for (i in 1:10){
+ glm_fit = glm(mpg ~ poly(horsepower,i),
+               data = auto)
+ cv_error_10[i] = cv.glm(auto,glm_fit,K=10)$delta[1] #first delta is standard cv estimate, second is bias corrected version. ?cv.glm will tell you this
+ 
+}
+cv_error_10
+```
+
+```{r}
+
+```
 
