@@ -39,8 +39,8 @@ dt.holdout$mod.A <- predict(fit.A, newdata = dt.holdout, type = "response")
 # by model A predictions
 #
 set.seed(13472)
-ord <- order(dt.holdout$mod.A, runif(length(dt.holdout$mod.A)))
-dt.holdout <- dt.holdout[ord,]
+ord <- order(dt.holdout$mod.A, runif(length(dt.holdout$mod.A))) #second random vector breaks ties in first vector. returns row numbers
+dt.holdout <- dt.holdout[ord,] #sort
 cum.expo <- cumsum(dt.holdout$exposure)
 total.exposure <- sum(dt.holdout$exposure)
 bks <- c(0, 1:9 * total.exposure/10, 10.2 * total.exposure/10)
@@ -55,10 +55,13 @@ tapply(dt.holdout$exposure, dt.holdout$bin.A, sum)
 # Now let's calculate the lift that the new model provides
 # compared to the current base model using deciles
 #
-avg.mod.A <- tapply(dt.holdout$mod.A,
-                    dt.holdout$bin.A, mean)/mean(dt.holdout$mod.A)
+avg.mod.A <- tapply(dt.holdout$mod.A,dt.holdout$bin.A, mean) / mean(dt.holdout$mod.A)
 avg.actual <- tapply(dt.holdout$claimcst0,
                      dt.holdout$bin.A, mean)/mean(dt.holdout$mod.A)
+#I think above line is an error. emailed CAS. should be this: 
+avg.actual <- tapply(dt.holdout$claimcst0,
+                     dt.holdout$bin.A, mean)/mean(dt.holdout$claimcst0)
+
 par(mar = c(4,4,1,1)+0.1)
 lim = c(0.5, 1.65)
 plot(x = 1:10, y = avg.actual, type = "b", ylim = lim,

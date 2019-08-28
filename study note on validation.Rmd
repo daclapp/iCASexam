@@ -147,9 +147,9 @@ LorenzCurve2 <- function (x, n = rep(1, length(x)), xhat, plot = FALSE)
 
  
 #debugonce(LorenzCurve2)
-with(train_augment, plot(LorenzCurve2(weight, count, weight_pred),
- col="blue", lwd=2,
- main="Training Sample", xlab=xtitle))
+# with(train_augment, plot(LorenzCurve2(weight, count, weight_pred),
+#  col="blue", lwd=2,
+#  main="Training Sample", xlab=xtitle))
 
 ```
 
@@ -176,7 +176,7 @@ LorenzCurve_DC <- function (data = NULL, actual = NULL, weights = NULL, predicte
 }
 
 #debugonce(LorenzCurve_DC)
-LorenzCurve_DC(data = train_augment, actual = "weight", weights = "count", predicted = "weight_pred")
+# LorenzCurve_DC(data = train_augment, actual = "weight", weights = "count", predicted = "weight_pred")
 
 #  actual = "weight"
 #  weights = "count"
@@ -322,6 +322,7 @@ area		driver's area of residence: A, B, C, D, E, F
 agecat		driver's age category: 1 (youngest), 2, 3, 4, 5, 6
 
 ```{r}
+#rewriting page 13 of study note on validation
 car = read.csv("data/car.csv") #from http://www.businessandeconomics.mq.edu.au/our_departments/Applied_Finance_and_Actuarial_Studies/research/books/GLMsforInsuranceData/data_sets
 car = car %>% 
   rename(vehicle_value = veh_value,
@@ -337,47 +338,91 @@ car = car %>%
   filter(claim_cost > 0) #since we're fitting a severity model
 
 set.seed(189763)
-car = car %>% 
+car_total = car %>% 
   mutate(random = runif(nrow(car)),
          split = if_else(random < .6 ,"train","holdout")) #runif is Random number from UNIForm distribution
 
-car 
+car_train = car_total  %>% filter(split == "train")
+car_holdout = car_total %>% filter(split == "holdout")
+rm(car)
 
 ```
 
 
 
 ```{r}
+
 model_1 = glm(claim_cost ~ area + vehicle_age,
-               data = car %>% filter(split == "train"),
+               data = car_train,
                family = Gamma(link = "log"))
 
 model_2 = glm(claim_cost ~ area + vehicle_age + gender,
-               data = car %>% filter(split == "train"),
+               data = car_train,
                family = Gamma(link = "log"))
 
-car_augment = car %>% 
-  filter(split == "holdout") %>%
-  mutate(model_1_pred = predict(model_1,newdata = car %>% filter(split == "holdout"),type = "response")) %>% 
-  mutate(model_2_pred = predict(model_2,newdata = car %>% filter(split == "holdout"),type = "response"))
+car_augment = car_holdout %>%
+  mutate(model_1_pred = predict(model_1,newdata = car_holdout,type = "response")) %>% 
+  mutate(model_2_pred = predict(model_2,newdata = car_holdout,type = "response"))
 
 car_augment
+
+
 
 ```
 
 
 ```{r}
+
+set.seed(13472)
 car_augment_bins = car_augment %>% 
-  mutate(bin = ntile(model_1_pred,10)) %>% #UPDATE TO BE EQUAL BINS BY EXPOSURE, NOT ROW COUNT
-  arrange(model_1_pred) #not needed but to check that ntile worked
+  mutate(random = runif(nrow(car_holdout))) %>% 
+  arrange(model_2_pred,random) %>% 
+  mutate(exposure_cumsum = cumsum(exposure)) %>% 
+  arrange(model_2_pred) #not needed but to check that ntile worked
+
+
+  
+car_augment_bins = car_augment_bins %>% 
+  mutate(bin_model_2_pred = cut(exposure_cumsum,breaks = c(0,1:9*sum(car_augment_bins$exposure)/10,sum(car_augment_bins$exposure)*1.1)))
+  
+#check bins worked
+car_augment_bins %>% 
+  group_by(bin_model_2_pred) %>% 
+  summarize(total_exposure = sum(exposure),
+            model_2_pred_min = min(model_2_pred),
+            model_2_pred_max = max(model_2_pred),
+            rows = n()) #matches line 53 tapply() exactly
 
 car_augment_bins
 ```
 
 
+```{r}
+
+
+car_augment_bins_graph = car_augment_bins %>% 
+  group_by(bin_model_2_pred) %>% 
+  summarize(model_2_pred_mean = mean(model_2_pred) / mean(car_augment_bins$model_2_pred), #replaces tapply(dt.holdout$mod.A,dt.holdout$bin.A, mean) / mean(dt.holdout$mod.A)
+            actual_mean = mean(claim_cost) / mean(car_augment_bins$claim_cost) #changed to corrected version. code on page 13 I think is wrong. emailed CAS to confirm
+            ) %>% 
+  mutate(bin = row_number())
+
+# plot(x = 1:10, y = car_augment_bins_graph$actual_mean,type = "b")
+# points(x = 1:10, y = car_augment_bins_graph$model_2_pred_mean, col = "red")
+
+car_augment_bins_graph %>% ggplot()+
+  geom_line(aes(x = bin,y=model_2_pred_mean,col = "red"))+
+  geom_line(aes(x = bin,y=actual_mean))+
+
+message(paste0("lift: ",max(car_augment_bins_graph$model_2_pred_mean) - min(car_augment_bins_graph$model_2_pred_mean)))
+
+```
 
 
 
+```{r}
+
+```
 
 
 
