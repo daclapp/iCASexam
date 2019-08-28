@@ -1,7 +1,7 @@
 Hash MD5 on policy number and insured name for train/test/holdout split reproducibilty 
 ```{r}
 if (!require("pacman")) install.packages("pacman")
-pacman::p_load(openssl, stringr)
+pacman::p_load(openssl, stringr,dplyr)
 
 data = data.frame(pol_num = c('123-0','456-0'), insured_name = c('insured_1','insured_2'))
 
@@ -9,6 +9,8 @@ data = data %>%
   mutate(hash = md5(str_c(pol_num,insured_name))) %>% 
   mutate(split = as.integer(as.hexmode(substr(hash, 1, 1)) %% 2L)) #modify 2L for different splits. what if not equal?
   #can also split by sorting on hash or cutoff values. It can actually be better to have your data reassign sample though so you would notice your models change drastically and your data may be noisier than you think. 
+
+as.integer(as.hexmode(substr(data$hash, 1, 1))) %% 2L
 
 data
 ```
@@ -37,7 +39,7 @@ set.seed(123)
 chick_weight = as_tibble(ChickWeight) %>% 
   mutate(count = 1) %>% 
   mutate(sample = as.factor(sample(c("Test","Train"), nrow(ChickWeight), replace=TRUE, prob = c(0.3,0.7))))
-
+  # mutate(sample = if_else(ntile(sample(1:1000,nrow(ChickWeight),replace=T),2) ==1 , ) #this could guarentee equal weights, need to split in non-equal buckets though and map back to train test 
 
 #check split close to target
 nrow(chick_weight %>% filter(sample == "Train"))/nrow(chick_weight) 
@@ -81,6 +83,8 @@ test = chick_weight %>% filter(sample == "Test")
 xtitle <- paste("Gini Coefficient =", round(gini(test$weight),5))
 plot(Lc(test$weight), col = "blue", lwd = 2,
  main = "Testing Sample", xlab = xtitle)
+
+#Lc() sorts on actuals. LorenzCurve2() below sorts on predicted
 ```
 https://www.kaggle.com/c/liberty-mutual-fire-peril/discussion/9880
 http://blog.nguyenvq.com/blog/2015/09/25/calculate-the-weighted-gini-coefficient-or-auc-in-r/
@@ -94,7 +98,7 @@ WeightedGini = function(actual,weights,predicted){
   set.seed(456)
   temp = data.frame(actual = actual, weights = weights, predicted = predicted)
   temp = temp %>% 
-    mutate(random_key = runif(nrow(temp))) %>%  # create random number sort key so ties will be resolved in random order  
+    mutate(random_key = runif(nrow(temp))) %>%  # create random number sort key so ties will be resolved in random order. if data sorted by actuals before this and didn't sort by random gini could be overstated 
     arrange(predicted,random_key) %>% 
     mutate(random = cumsum(weights/sum(weights)),
            cumPosFound = cumsum(actual*weights),
@@ -106,7 +110,7 @@ WeightedGini = function(actual,weights,predicted){
 
 ```{r}
 
-# Lorenz Curve function that uses predicted values for sorting
+# Lorenz Curve function that uses predicted values for sorting. Lc() sorts on actuals
 LorenzCurve2 <- function (x, n = rep(1, length(x)), xhat, plot = FALSE)
 {
  # Modification of Lc function in ineq package
@@ -143,7 +147,7 @@ LorenzCurve2 <- function (x, n = rep(1, length(x)), xhat, plot = FALSE)
 
  
 #debugonce(LorenzCurve2)
-with(train_augment, plot(LorenzCurve2(weight, count, weight_p),
+with(train_augment, plot(LorenzCurve2(weight, count, weight_pred),
  col="blue", lwd=2,
  main="Training Sample", xlab=xtitle))
 
@@ -165,25 +169,28 @@ LorenzCurve_DC <- function (data = NULL, actual = NULL, weights = NULL, predicte
  data = data %>% 
    filter(!is.na(actual)) %>% 
    arrange_(predicted) %>% 
-   mutate(totalPo sitive = actual * weights)
+   mutate(totalPositive = actual * weights)
    
   
  return(data)
 }
 
 #debugonce(LorenzCurve_DC)
-LorenzCurve_DC(data = train_augment, actual = "weight", weights = "count", predicted = "weight_p")
+LorenzCurve_DC(data = train_augment, actual = "weight", weights = "count", predicted = "weight_pred")
 
 #  actual = "weight"
 #  weights = "count"
-#  predicted = "weight_p"
+#  predicted = "weight_pred"
 # train_augment %>% 
 #   filter(!is.na(actual)) %>% 
 #    arrange_(predicted)
 ```
 
 ```{r}
-round(with(train, WeightedGini(weight, count, weight)), 5)
+round(with(train, WeightedGini(actual = weight,
+                               weights = count,
+                               predicted = weight)), 5)
+
 ```
 
 ```{r}
@@ -193,17 +200,17 @@ set.seed(456)
 model_rf = randomForest(weight ~ Diet + Time, data = train)
 
 train_augment = train %>% 
-  mutate(weight_p = predict(model_rf, train))
+  mutate(weight_pred = predict(model_rf, train))
 
-debugonce(WeightedGini)
-train_pgin = round(with(train_augment, WeightedGini(weight, count, weight_p)), 5)
+
+train_pgin = round(with(train_augment, WeightedGini(weight, count, weight_pred)), 5)
 
 
 xtitle = paste("Random Forest Gini Coefficient =",
  round(train_pgin,5))
 
 #debugonce(LorenzCurve2)
-with(train_augment, plot(LorenzCurve2(weight, count, weight_p),
+with(train_augment, plot(LorenzCurve2(weight, count, weight_pred),
  col="blue", lwd=2,
  main="Training Sample", xlab=xtitle))
 
@@ -212,14 +219,14 @@ with(train_augment, plot(LorenzCurve2(weight, count, weight_p),
 
 # Predicted on Test Sample
 test_augment = test %>% 
-  mutate(weight_p = predict(model_rf, test))
+  mutate(weight_pred = predict(model_rf, test))
 
-test_pgin <- round(with(test_augment,WeightedGini(weight, count, weight_p)), 5)
+test_pgin <- round(with(test_augment,WeightedGini(weight, count, weight_pred)), 5)
 
 xtitle <- paste("Random Forest Gini Coefficient =",
  round(test_pgin,5))
 
-with(test_augment, plot(LorenzCurve2(weight, count, weight_p),
+with(test_augment, plot(LorenzCurve2(weight, count, weight_pred),
  col="blue", lwd=2,
  main="Test Sample", xlab=xtitle))
 
@@ -244,29 +251,29 @@ model_ols = lm(weight ~ Time,
 # Predicted on Training Sample
 
 train_augment = train %>% 
-  mutate(weight_p = predict(model_ols, train))
+  mutate(weight_pred = predict(model_ols, train))
 
 set.seed(456)
 train_pgin <- round(with(train_augment,
- WeightedGini(actual = weight, weights = count, predicted = weight_p)), 5)
+ WeightedGini(actual = weight, weights = count, predicted = weight_pred)), 5)
 
 xtitle <- paste("Linear Model Gini Coefficient =",
  round(train_pgin,5))
 
-with(train_augment, plot(LorenzCurve2(weight, count, weight_p),
+with(train_augment, plot(LorenzCurve2(weight, count, weight_pred),
  col="blue", lwd=2,
 main="Training Sample", xlab=xtitle))
 # Predicted on Test Sample
 test_augment = test %>% 
-  mutate(weight_p = predict(model_ols, test))
+  mutate(weight_pred = predict(model_ols, test))
 
 test_pgin <- round(with(test_augment,
- WeightedGini(actual = weight, weights = count, predicted = weight_p)), 5)
+ WeightedGini(actual = weight, weights = count, predicted = weight_pred)), 5)
 
 
 xtitle <- paste("Linear Model Gini Coefficient =",
  round(test_pgin,5))
-with(test_augment, plot(LorenzCurve2(weight, count, weight_p),
+with(test_augment, plot(LorenzCurve2(weight, count, weight_pred),
  col="blue", lwd=2,
  main="Test Sample", xlab=xtitle))
 
@@ -280,6 +287,105 @@ message('Difference in normalized Gini = ',norm_gini_train - norm_gini_test) #or
 ```
 
 
-PICKUP ON LIFT CHARTS
+LIFT CHARTS
+to compare two or more models
+
+car.csv info from http://www.businessandeconomics.mq.edu.au/our_departments/Applied_Finance_and_Actuarial_Studies/research/books/GLMsforInsuranceData/data_sets
+This data set is based on  one-year vehicle insurance
+policies taken out in 2004 or 2005. There are 67856 policies, of
+which  4624 (6.8%) had at least one claim. 
+
+Variables:
+
+veh_value	vehicle value, in $10,000s
+exposure	0-1
+clm		occurrence of claim (0 = no, 1 = yes)
+numclaims	number of claims
+claimcst0	claim amount (0 if no claim)
+veh_body	vehicle body, coded as
+              BUS
+              CONVT = convertible  
+              COUPE   
+              HBACK = hatchback                  
+              HDTOP = hardtop
+              MCARA = motorized caravan
+              MIBUS = minibus
+              PANVN = panel van
+              RDSTR = roadster
+              SEDAN    
+              STNWG = station wagon
+              TRUCK           
+              UTE - utility
+veh_age	age of vehicle: 1 (youngest), 2, 3, 4
+gender		gender of driver: M, F
+area		driver's area of residence: A, B, C, D, E, F
+agecat		driver's age category: 1 (youngest), 2, 3, 4, 5, 6
+
+```{r}
+car = read.csv("data/car.csv") #from http://www.businessandeconomics.mq.edu.au/our_departments/Applied_Finance_and_Actuarial_Studies/research/books/GLMsforInsuranceData/data_sets
+car = car %>% 
+  rename(vehicle_value = veh_value,
+         claim_ind = clm,
+         claim_cost = claimcst0,
+         vehicle_body = veh_body,
+         vehicle_age = veh_age,
+         age_cat = agecat) %>% 
+  mutate(vehicle_value = vehicle_value*10000,
+         vehicle_age = as.factor(vehicle_age),#why didn't they leave this as a number?
+         age_cat = as.factor(age_cat)) %>% 
+  select(-X_OBSTAT_) %>% 
+  filter(claim_cost > 0) #since we're fitting a severity model
+
+set.seed(189763)
+car = car %>% 
+  mutate(random = runif(nrow(car)),
+         split = if_else(random < .6 ,"train","holdout")) #runif is Random number from UNIForm distribution
+
+car 
+
+```
+
+
+
+```{r}
+model_1 = glm(claim_cost ~ area + vehicle_age,
+               data = car %>% filter(split == "train"),
+               family = Gamma(link = "log"))
+
+model_2 = glm(claim_cost ~ area + vehicle_age + gender,
+               data = car %>% filter(split == "train"),
+               family = Gamma(link = "log"))
+
+car_augment = car %>% 
+  filter(split == "holdout") %>%
+  mutate(model_1_pred = predict(model_1,newdata = car %>% filter(split == "holdout"),type = "response")) %>% 
+  mutate(model_2_pred = predict(model_2,newdata = car %>% filter(split == "holdout"),type = "response"))
+
+car_augment
+
+```
+
+
+```{r}
+car_augment_bins = car_augment %>% 
+  mutate(bin = ntile(model_1_pred,10)) %>% #UPDATE TO BE EQUAL BINS BY EXPOSURE, NOT ROW COUNT
+  arrange(model_1_pred) #not needed but to check that ntile worked
+
+car_augment_bins
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
