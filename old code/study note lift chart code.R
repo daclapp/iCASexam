@@ -132,3 +132,71 @@ text(x = 1.5, y = 1.4,
                     collapse = ""),
      pos = 4, cex = 0.8, col = "red")
 rm(avg.mod.B, avg.actual, lim)
+
+
+
+#double lift
+
+
+#ROC
+
+library(foreign)
+library(rms)
+# Set to TRUE to generate the graph as a JPEG file
+generate.file <- FALSE
+#
+# Using the testicular cancer (t821.sav) data from the book
+# Clinical Prediction Models
+# by Ewout W. Steyerberg
+# http://www.clinicalpredictionmodels.org/
+#
+tmp <- read.spss("t821.sav", to.data.frame = TRUE)
+# The data t821.sav is in SPSS format and reading it will
+# throw a warning message about undeclared levels in the
+# HOSP variable. Please ignore it as we are not using
+# this variable for this example.
+n544 <- tmp[tmp$STUDY == "development",]
+#
+# Set the vector Y to Yes or No depending
+# on whether the patient has benign tissue
+#
+Y <- rep("No", 544)
+Y[n544$NEC == 1] <- "Yes"
+Y <- as.factor(Y)
+full <- lrm(NEC ~ TER + PREAFP + PREHCG + SQPOST + REDUC10,
+            data = n544,
+            x = TRUE,
+            y = TRUE)
+probs <- predict(full, type = "fitted.ind")
+thresholds <- seq(0.005, 0.93, length = 50)
+N <- length(thresholds)
+TPR <- numeric(N) # true positive rates
+FPR <- numeric(N) # false positive rates
+for(i in 1:N){
+        mod.pred <- rep("N", 544)
+        mod.pred[probs > thresholds[i]] <- "Y"
+        tb <- table(mod.pred, Y)[2:1,2:1] #confusion matrix
+        TPR[i] <- tb[1,1] / (tb[1,1]+tb[2,1])
+        FPR[i] <- tb[1,2] / (tb[1,2]+tb[2,2])
+}
+if(generate.file)
+        jpeg(filename = "roc-example.jpeg", width = 640, height = 380)
+op <- par(mar = c(4,4,1,1))
+plot(x = FPR, y = TPR,
+     type = "p", pch = 1, cex = 0.5,
+     xlim = c(0,1), ylim = c(0,1),
+     ylab = "True Positive Rate", xlab = "False Positive Rate")
+lines(x = c(0,1), y = c(0,1), col = "gray")
+text(y = 0.996, x = 0.756, label = "10%", cex = 0.8, pos = 1)
+text(y = 0.906, x = 0.445, label = "30%", cex = 0.8, pos = 1)
+if(generate.file) dev.off()
+#
+# Calculate an approximation to the
+# area under the curve (AUC) using
+# mid-point as the height of the
+# approximating rectangles
+#
+FPR <- rev(FPR)
+TPR <- rev(TPR)
+rect.base <- (FPR[-1] - FPR[-length(FPR)])
+AUC <- (sum(rect.base * TPR[-1]) + sum(rect.base * TPR[-length(TPR)]))/2

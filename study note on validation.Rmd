@@ -360,9 +360,14 @@ model_2 = glm(claim_cost ~ area + vehicle_age + gender,
                data = car_train,
                family = Gamma(link = "log"))
 
+model_3 = glm(claim_cost ~ area + vehicle_age + gender + age_cat + vehicle_value + vehicle_body,
+               data = car_train,
+               family = Gamma(link = "log"))
+
 car_augment = car_holdout %>%
   mutate(model_1_pred = predict(model_1,newdata = car_holdout,type = "response")) %>% 
-  mutate(model_2_pred = predict(model_2,newdata = car_holdout,type = "response"))
+  mutate(model_2_pred = predict(model_2,newdata = car_holdout,type = "response")) %>% 
+  mutate(model_3_pred = predict(model_3,newdata = car_holdout,type = "response"))
 
 car_augment
 
@@ -372,6 +377,7 @@ car_augment
 
 
 ```{r}
+#make this a function since called twice
 
 set.seed(13472)
 car_augment_bins = car_augment %>% 
@@ -393,12 +399,6 @@ car_augment_bins %>%
             model_2_pred_max = max(model_2_pred),
             rows = n()) #matches line 53 tapply() exactly
 
-car_augment_bins
-```
-
-
-```{r}
-
 
 car_augment_bins_graph = car_augment_bins %>% 
   group_by(bin_model_2_pred) %>% 
@@ -412,18 +412,104 @@ car_augment_bins_graph = car_augment_bins %>%
 
 car_augment_bins_graph %>% ggplot()+
   geom_line(aes(x = bin,y=model_2_pred_mean,col = "red"))+
-  geom_line(aes(x = bin,y=actual_mean))+
+  geom_line(aes(x = bin,y=actual_mean))
 
 message(paste0("lift: ",max(car_augment_bins_graph$model_2_pred_mean) - min(car_augment_bins_graph$model_2_pred_mean)))
 
+
 ```
+
+
+
 
 
 
 ```{r}
+#slightly modifying cell above, but in real life would functionalize this
+
+set.seed(13472)
+car_augment_bins = car_augment %>% 
+  mutate(random = runif(nrow(car_holdout))) %>% 
+  arrange(model_3_pred,random) %>% 
+  mutate(exposure_cumsum = cumsum(exposure)) %>% 
+  arrange(model_3_pred) #not needed but to check that ntile worked
+
+
+  
+car_augment_bins = car_augment_bins %>% 
+  mutate(bin_model_3_pred = cut(exposure_cumsum,breaks = c(0,1:9*sum(car_augment_bins$exposure)/10,sum(car_augment_bins$exposure)*1.1)))
+  
+#check bins worked
+car_augment_bins %>% 
+  group_by(bin_model_3_pred) %>% 
+  summarize(total_exposure = sum(exposure),
+            model_3_pred_min = min(model_3_pred),
+            model_3_pred_max = max(model_3_pred),
+            rows = n()) #matches line 53 tapply() exactly
+
+car_augment_bins_graph = car_augment_bins %>% 
+  group_by(bin_model_3_pred) %>% 
+  summarize(model_3_pred_mean = mean(model_3_pred) / mean(car_augment_bins$model_3_pred), #replaces tapply(dt.holdout$mod.A,dt.holdout$bin.A, mean) / mean(dt.holdout$mod.A)
+            actual_mean = mean(claim_cost) / mean(car_augment_bins$claim_cost) #changed to corrected version. code on page 13 I think is wrong. emailed CAS to confirm
+            ) %>% 
+  mutate(bin = row_number())
+
+car_augment_bins_graph
+# plot(x = 1:10, y = car_augment_bins_graph$actual_mean,type = "b")
+# points(x = 1:10, y = car_augment_bins_graph$model_3_pred_mean, col = "red")
+
+car_augment_bins_graph %>% ggplot()+
+  geom_line(aes(x = bin,y=model_3_pred_mean,col = "red"))+
+  geom_line(aes(x = bin,y=actual_mean))
+
+message(paste0("lift: ",max(car_augment_bins_graph$model_3_pred_mean) - min(car_augment_bins_graph$model_3_pred_mean)))
+
 
 ```
 
+double lift chart
+```{r}
+set.seed(13472)
+car_augment_bins = car_augment %>% 
+  mutate(model_ratio = model_3_pred/model_2_pred) %>% 
+  arrange(model_ratio) %>% 
+  mutate(exposure_cumsum = cumsum(exposure)) %>% 
+  arrange(model_ratio) #not needed but to check that ntile worked
+
+
+  
+car_augment_bins = car_augment_bins %>% 
+  mutate(bin_range = cut(exposure_cumsum,breaks = c(0,1:9*sum(car_augment_bins$exposure)/10,sum(car_augment_bins$exposure)*1.1)))
+  
+#check bins worked
+car_augment_bins %>% 
+  group_by(bin_range) %>% 
+  summarize(total_exposure = sum(exposure),
+            model_3_pred_min = min(model_3_pred),
+            model_3_pred_max = max(model_3_pred),
+            rows = n()) #matches line 53 tapply() exactly
+
+car_augment_bins_graph = car_augment_bins %>% 
+  group_by(bin_range) %>% 
+  summarize(model_2_pred_mean = mean(model_2_pred) / mean(car_augment_bins$model_2_pred),
+    model_3_pred_mean = mean(model_3_pred) / mean(car_augment_bins$model_3_pred), #replaces tapply(dt.holdout$mod.A,dt.holdout$bin.A, mean) / mean(dt.holdout$mod.A)
+            actual_mean = mean(claim_cost) / mean(car_augment_bins$claim_cost) #changed to corrected version. code on page 13 I think is wrong. emailed CAS to confirm
+            ) %>% 
+  mutate(bin = row_number())
+
+car_augment_bins_graph
+# plot(x = 1:10, y = car_augment_bins_graph$actual_mean,type = "b")
+# points(x = 1:10, y = car_augment_bins_graph$model_3_pred_mean, col = "red")
+
+car_augment_bins_graph %>% ggplot()+
+  geom_line(aes(x = bin,y=model_2_pred_mean,col = "blue"))+
+  geom_line(aes(x = bin,y=model_3_pred_mean,col = "red"))+
+  geom_line(aes(x = bin,y=actual_mean))
+```
+ROC
+```{r}
+
+```
 
 
 
