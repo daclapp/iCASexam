@@ -150,7 +150,7 @@ generate.file <- FALSE
 # by Ewout W. Steyerberg
 # http://www.clinicalpredictionmodels.org/
 #
-tmp <- read.spss("t821.sav", to.data.frame = TRUE)
+tmp <- read.spss("data/t821.sav", to.data.frame = TRUE)
 # The data t821.sav is in SPSS format and reading it will
 # throw a warning message about undeclared levels in the
 # HOSP variable. Please ignore it as we are not using

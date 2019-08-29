@@ -508,10 +508,90 @@ car_augment_bins_graph %>% ggplot()+
 ```
 ROC
 ```{r}
+pacman::p_load(foreign,rms)
+
+data = suppressWarnings(read.spss("data/t821.sav",to.data.frame = T)) #http://clinicalpredictionmodels.org/doku.php?id=rcode_and_data:start
+data = data %>% 
+  mutate(actual = NEC)
+data
+```
+
+```{r}
+train = data %>% 
+  filter(STUDY == "development") 
+
+full_model = lrm(actual ~ TER + PREAFP + PREHCG + SQPOST + REDUC10,
+                 data = train,
+                 x = T,
+                 y = T) #what is this? lrm() not on syllabus
+
+data_augment = data %>% 
+  mutate(pred = predict(full_model, newdata = data, type = "fitted.ind"))
 
 ```
 
 
+```{r}
+#training roc
+thresholds = seq(.005,.93,length = 50)
+
+data_augment_slim = data_augment %>% 
+  filter(STUDY == "development") %>% #training dataset
+  select(actual,pred)
+
+roc_data = NULL
+
+for (i in 1:length(thresholds)){
+  # i = 25 #uncomment for testing
+  temp1 = data_augment_slim %>% 
+    mutate(pred_cat = if_else(pred > thresholds[i],1,0))
+  
+  FPR = nrow(temp1 %>% filter(actual ==0 & pred_cat == 1))/nrow(temp1 %>% filter(actual ==0))
+  TPR = nrow(temp1 %>% filter(actual ==1 & pred_cat == 1))/nrow(temp1 %>% filter(actual ==1))
+  
+  temp2 = data.frame("FPR" = FPR,"TPR" = TPR,"threshold" =  thresholds[i])
+  roc_data = bind_rows(roc_data,temp2)
+}
+roc_data
+plot(roc_data$FPR,roc_data$TPR)
+
+
+#approximate AUC using mid-point as height of the rectangles
+
+```
+
+```{r}
+#test roc
+thresholds = seq(.005,.93,length = 50)
+
+data_augment_slim = data_augment %>% 
+  filter(STUDY != "development") %>% #training dataset
+  select(actual,pred)
+
+roc_data = NULL
+
+for (i in 1:length(thresholds)){
+  # i = 25 #uncomment for testing
+  temp1 = data_augment_slim %>% 
+    mutate(pred_cat = if_else(pred > thresholds[i],1,0))
+  
+  FPR = nrow(temp1 %>% filter(actual ==0 & pred_cat == 1))/nrow(temp1 %>% filter(actual ==0))
+  TPR = nrow(temp1 %>% filter(actual ==1 & pred_cat == 1))/nrow(temp1 %>% filter(actual ==1))
+  
+  temp2 = data.frame("FPR" = FPR,"TPR" = TPR,"threshold" =  thresholds[i])
+  roc_data = bind_rows(roc_data,temp2)
+}
+roc_data
+plot(roc_data$FPR,roc_data$TPR)
+
+
+#approximate AUC using mid-point as height of the rectangles
+FPR <- rev(FPR)
+TPR <- rev(TPR)
+rect.base <- (FPR[-1] - FPR[-length(FPR)])
+AUC <- (sum(rect.base * TPR[-1]) + sum(rect.base * TPR[-length(TPR)]))/2
+
+```
 
 
 
