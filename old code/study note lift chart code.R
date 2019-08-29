@@ -198,5 +198,21 @@ if(generate.file) dev.off()
 #
 FPR <- rev(FPR)
 TPR <- rev(TPR)
-rect.base <- (FPR[-1] - FPR[-length(FPR)])
+rect.base <- (FPR[-1] - FPR[-length(FPR)]) 
+
+out1 = as.data.frame(FPR) %>% mutate(data = "FPR") %>% rename(value = FPR)
+out2 = as.data.frame(TPR) %>% mutate(data = "TPR") %>% rename(value = TPR)
+out3 = as.data.frame(rect.base) %>% mutate(data = "rect.base") %>% rename(value = rect.base)
+out = bind_rows(out1,out2,out3)
+
+pacman::p_load(openxlsx)
+write.xlsx(as.data.frame(out),'auc.xlsx')
+
 AUC <- (sum(rect.base * TPR[-1]) + sum(rect.base * TPR[-length(TPR)]))/2
+
+
+
+#https://stats.stackexchange.com/questions/145566/how-to-calculate-area-under-the-curve-auc-or-the-c-statistic-by-hand
+
+
+

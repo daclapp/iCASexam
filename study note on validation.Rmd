@@ -583,15 +583,28 @@ for (i in 1:length(thresholds)){
 }
 roc_data
 plot(roc_data$FPR,roc_data$TPR)
+```
+
+AUC
+```{r}
+#re-creating paper code more intuitively. see auc.xlsx and auc visul.png
+auc_data = roc_data %>% 
+  arrange(desc(threshold)) %>% 
+  mutate(rect_base = FPR - lag(FPR, n=1)) %>% 
+  mutate(rect_height = (TPR + lag(TPR,n=1))/2,
+        rect_area = rect_base * rect_height) %>%  #averaging heights of two nearest points. see auc visual.png
+  filter(row_number() != 1) 
+  
+# sum(auc_data$rect_base) #should be close to 1
 
 
-#approximate AUC using mid-point as height of the rectangles
-FPR <- rev(FPR)
-TPR <- rev(TPR)
-rect.base <- (FPR[-1] - FPR[-length(FPR)])
-AUC <- (sum(rect.base * TPR[-1]) + sum(rect.base * TPR[-length(TPR)]))/2
+paste0("AUC: ",round(sum(auc_data$rect_area),3))
+#paper calcs .814
+
+#GET THIS TO MATCH THE PAPER
 
 ```
+
 
 
 
