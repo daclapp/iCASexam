@@ -83,7 +83,45 @@ for (i in 1:10){
 cv_error_10
 ```
 
+5.3.4 learning objective C.2
+Bootstrap
 ```{r}
+
+portfolio = ISLR::Portfolio
+#step 1: create function that computes statistic of interest
+alpha_fun = function(data,index){
+  X = data$X[index]
+  Y = data$Y[index]
+  return(var(Y)-cov(X,Y))/(var(X)+var(Y)-2*cov(X,Y)) #returns estimate for alpha on page 187. alpha minimizes total variance in investment
+}
+
+alpha_fun(portfolio,1:100)
+#step 2: use boot() to sample with replacement
+set.seed(1)
+alpha_fun(portfolio,sample(x = 100, size = 100, replace = T)) #boot() function automates this line many times and cals sd of samples alphas. would be easy to write in for loop
+
+pacman::p_load(boot)
+boot(portfolio,alpha_fun,R=1000) #not sure why this doesn't match book
+
+```
+
+```{r}
+auto = ISLR::Auto
+
+boot_fun = function(data,index)
+return(coef(lm(mpg~horsepower,data = data, subset = index)))
+
+boot_fun(auto,1:392) #parameters using all data
+
+set.seed(1)
+boot_fun(auto,sample(392,392,replace=T))
+
+#SE using bootstrap:
+boot(auto,boot_fun,1000) 
+
+#SE using formulas:
+summary(lm(mpg~horsepower,data = auto))$coef #relies on assumptions that bootstrap is not tied to
+
 
 ```
 

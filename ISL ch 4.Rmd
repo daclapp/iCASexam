@@ -1,0 +1,169 @@
+
+```{r}
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(ISLR,boot)
+source("load_packages.R") #load these last so overwrite functions other packages (like dplyr::select)
+
+```
+
+```{r}
+stock_market = ISLR::Smarket
+stock_market #could re-create lags with dplyr::lag() but missing first 4 rows of data for lag5 in on first row of data
+
+```
+
+```{r}
+pairs(stock_market)
+
+```
+
+```{r}
+cor(stock_market %>% select(-Direction))
+
+```
+
+```{r}
+# volume going up over time is only correlation
+stock_market %>% 
+  mutate(row_num = row_number()) %>% 
+  ggplot(aes(x = row_num,y = Volume))+
+  geom_point()
+```
+
+```{r}
+model_glm = glm(Direction ~ Lag1 + Lag2 + Lag3 + Lag4 + Lag5 + Volume,
+                data = stock_market,
+                family = binomial)
+summary(model_glm)
+```
+
+```{r}
+coef(model_glm) #summary(glm_model)$coef[,4] also works
+```
+
+```{r}
+contrasts(stock_market$Direction)
+```
+
+```{r}
+train_augment = stock_market %>% 
+  mutate(Direction_pred = predict(model_glm,type = "response")) %>%  # no newdata so will predict on training set. "response" to get results back not in logit terms
+  mutate(Direction_pred_label = if_else(Direction_pred>.5,"Up","Down"))
+
+table(train_augment$Direction_pred_label,train_augment$Direction)
+
+message(paste0("training error rate: ",1-mean(train_augment$Direction_pred_label == train_augment$Direction)))
+```
+
+```{r}
+train = stock_market %>% 
+  filter(Year < 2005)
+
+test = stock_market %>% 
+  filter(Year >= 2005)
+
+model_glm = glm(Direction ~ Lag1 + Lag2 + Lag3 + Lag4 + Lag5 + Volume,
+                data = train,
+                family = binomial)
+
+test_augment = test %>% 
+  mutate(Direction_pred = predict(model_glm,newdata = test, type = "response")) %>%  # no newdata so will predict on training set. "response" to get results back not in logit terms
+  mutate(Direction_pred_label = if_else(Direction_pred>.5,"Up","Down"))
+
+table(test_augment$Direction_pred_label,test_augment$Direction)
+
+message(paste0("test error rate: ",1-mean(test_augment$Direction_pred_label == test_augment$Direction)))
+#book builds model on just lag1 and lag2 with 58% accuracy, but you get 56% accuracy predicting up for every day. 
+```
+
+```{r}
+#predict for one obs
+model_glm_simple = glm(Direction ~ Lag1 + Lag2,
+                data = train,
+                family = binomial)
+
+predict(model_glm_simple,newdata = data.frame(Lag1 = c(1.2,1.5), Lag2 = c(1.1,-0.8)),type = "response")
+
+```
+
+LDA (Linear Discriminant Analysis)
+```{r}
+pacman::p_load(MASS)
+
+
+model_lda = lda(Direction ~ Lag1 + Lag2, data = train)
+model_lda
+plot(model_lda) #from equation 4.19. Combination of xvars. if large will predict market up, if small predict market Down. bars from each row of the training data. can get from predict()$x
+
+test_augment = test_augment %>% 
+  mutate(Direction_pred_LDA = predict(model_lda,newdata = test)$posterior[,1]) %>%
+  mutate(Direction_pred_label_LDA = predict(model_lda,newdata = test)$class)
+test_augment #notice LDA posterior is prediction DOWN, unlike glm predicting UP
+
+table(test_augment$Direction_pred_label_LDA,test_augment$Direction)
+
+message(paste0("test error rate: ",1-mean(test_augment$Direction_pred_label_LDA == test_augment$Direction)))
+#book builds model on just lag1 and lag2 with 58% accuracy, but you get 56% accuracy predicting up for every
+```
+
+QDA (Quadratic Discriminant Analysis)
+```{r}
+model_qda = qda(Direction ~ Lag1 + Lag2, data = train)
+model_qda
+
+
+test_augment = test_augment %>% 
+  mutate(Direction_pred_qda = predict(model_qda,newdata = test)$posterior[,1]) %>%
+  mutate(Direction_pred_label_qda = predict(model_qda,newdata = test)$class)
+test_augment #notice qda posterior is prediction DOWN, unlike glm predicting UP
+
+table(test_augment$Direction_pred_label_qda,test_augment$Direction)
+
+message(paste0("test error rate: ",1-mean(test_augment$Direction_pred_label_qda == test_augment$Direction)))
+
+```
+
+KNN (K-Nearest Neighbors)
+```{r}
+pacman::p_load(class)
+
+#forms predictions in single command
+xvars = c("Lag1","Lag2")
+
+
+set.seed(1)
+model_knn = knn(train = train %>% dplyr::select(xvars) %>% as.matrix,
+                test = test %>% dplyr::select(xvars) %>% as.matrix,
+                cl = train %>% dplyr::select(Direction) %>% as.matrix,
+                k = 3)
+
+table(model_knn,test$Direction)
+
+message(paste0("test error rate: ",1-mean(model_knn == test$Direction)))
+
+```
+QDA fit data above the best with lowest test error rate
+
+
+
+KNN on Caravan dataset
+```{r}
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
