@@ -1,7 +1,7 @@
 
 ```{r}
 if (!require("pacman")) install.packages("pacman")
-pacman::p_load(ISLR,boot)
+pacman::p_load(ISLR,boot,MASS)
 source("load_packages.R") #load these last so overwrite functions other packages (like dplyr::select)
 
 ```
@@ -88,7 +88,7 @@ predict(model_glm_simple,newdata = data.frame(Lag1 = c(1.2,1.5), Lag2 = c(1.1,-0
 
 LDA (Linear Discriminant Analysis)
 ```{r}
-pacman::p_load(MASS)
+# pacman::p_load(MASS) # done at top before dplyr since causes issue with dplyr::select()
 
 
 model_lda = lda(Direction ~ Lag1 + Lag2, data = train)
@@ -132,9 +132,9 @@ xvars = c("Lag1","Lag2")
 
 
 set.seed(1)
-model_knn = knn(train = train %>% dplyr::select(xvars) %>% as.matrix,
-                test = test %>% dplyr::select(xvars) %>% as.matrix,
-                cl = train %>% dplyr::select(Direction) %>% as.matrix,
+model_knn = knn(train = train %>% select(xvars) %>% as.matrix,
+                test = test %>% select(xvars) %>% as.matrix,
+                cl = train %>% select(Direction) %>% as.matrix,
                 k = 3)
 
 table(model_knn,test$Direction)
@@ -146,8 +146,48 @@ QDA fit data above the best with lowest test error rate
 
 
 
-KNN on Caravan dataset
+KNN on Caravan dataset 
 ```{r}
+caravan = ISLR::Caravan
+caravan
+caravan %>% count(Purchase)
+```
+
+```{r}
+caravan_scaled = scale(caravan %>% select(-Purchase)) #standardizes and converts to matrix
+
+#split into train/test. I think this should be done before standardizing to avoid leakage
+
+test = 1:1000
+train_x = caravan_scaled[-test,]
+train_y = caravan$Purchase[-test] #not on scaled data
+
+test_x  = caravan_scaled[test,]
+test_y = caravan$Purchase[test] #not on scaled data
+
+set.seed(1)
+model_knn = knn(train = train_x,
+                test = test_x,
+                cl = train_y,
+                k = 1)
+
+
+#KNN has more error than just predicting No:
+message(paste0("test error rate: ",1-mean(model_knn == test_y)))
+message(paste0("error rate if always predict No: ",mean(test_y != 'No')))
+
+#but don't care about error rate, trying to find pocket with higher hit rates for sales people to focus on. The predictinos of yes has 11.7% hit rate so salespeople can focus there:
+table(model_knn,test_y)
+9/(68+9)
+
+#k=5 produces best result, but logistic regression still outperforms this
+```
+
+```{r}
+#http://liacs.leidenuniv.nl/~puttenpwhvander/library/cc2000/data.html  from ?ISLR::Caravan
+#caravan data has factor data like:
+caravan %>% count(MOSHOOFD)
+#this is scaled same as numeric fields above. 
 
 ```
 

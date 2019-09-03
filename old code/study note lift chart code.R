@@ -4,14 +4,14 @@
 # by Piet de Jong and Gillian Heller
 # http://www.acst.mq.edu.au/GLMsforInsuranceData/
 #
-dta <- read.csv("data/car.csv")
+dta <- read.csv("car.csv")
 dta <- dta[,1:10]
 dta$veh_age <- as.factor(dta$veh_age)
 dta$agecat <- as.factor(dta$agecat)
 # separate all records with positive claims cost
 idx <- dta$claimcst0 > 0
 dtb <- dta[idx,]
-dtb$obs <- 1:(dim(dtb)[1]) #adding row number
+dtb$obs <- 1:(dim(dtb)[1])
 rm(idx, dta)
 # add random numbers and split data into training and holdout
 set.seed(189763)
@@ -39,8 +39,8 @@ dt.holdout$mod.A <- predict(fit.A, newdata = dt.holdout, type = "response")
 # by model A predictions
 #
 set.seed(13472)
-ord <- order(dt.holdout$mod.A, runif(length(dt.holdout$mod.A))) #second random vector breaks ties in first vector. returns row numbers
-dt.holdout <- dt.holdout[ord,] #sort
+ord <- order(dt.holdout$mod.A, runif(length(dt.holdout$mod.A)))
+dt.holdout <- dt.holdout[ord,]
 cum.expo <- cumsum(dt.holdout$exposure)
 total.exposure <- sum(dt.holdout$exposure)
 bks <- c(0, 1:9 * total.exposure/10, 10.2 * total.exposure/10)
@@ -55,13 +55,10 @@ tapply(dt.holdout$exposure, dt.holdout$bin.A, sum)
 # Now let's calculate the lift that the new model provides
 # compared to the current base model using deciles
 #
-avg.mod.A <- tapply(dt.holdout$mod.A,dt.holdout$bin.A, mean) / mean(dt.holdout$mod.A)
+avg.mod.A <- tapply(dt.holdout$mod.A,
+                    dt.holdout$bin.A, mean)/mean(dt.holdout$mod.A)
 avg.actual <- tapply(dt.holdout$claimcst0,
                      dt.holdout$bin.A, mean)/mean(dt.holdout$mod.A)
-#I think above line is an error. emailed CAS. should be this: 
-avg.actual <- tapply(dt.holdout$claimcst0,
-                     dt.holdout$bin.A, mean)/mean(dt.holdout$claimcst0)
-
 par(mar = c(4,4,1,1)+0.1)
 lim = c(0.5, 1.65)
 plot(x = 1:10, y = avg.actual, type = "b", ylim = lim,
@@ -131,88 +128,4 @@ text(x = 1.5, y = 1.4,
                       round(diff(avg.mod.B[c(1,10)]),2)),
                     collapse = ""),
      pos = 4, cex = 0.8, col = "red")
-rm(avg.mod.B, avg.actual, lim)
-
-
-
-#double lift
-
-
-#ROC
-
-library(foreign)
-library(rms)
-# Set to TRUE to generate the graph as a JPEG file
-generate.file <- FALSE
-#
-# Using the testicular cancer (t821.sav) data from the book
-# Clinical Prediction Models
-# by Ewout W. Steyerberg
-# http://www.clinicalpredictionmodels.org/
-#
-tmp <- read.spss("data/t821.sav", to.data.frame = TRUE)
-# The data t821.sav is in SPSS format and reading it will
-# throw a warning message about undeclared levels in the
-# HOSP variable. Please ignore it as we are not using
-# this variable for this example.
-n544 <- tmp[tmp$STUDY == "development",]
-#
-# Set the vector Y to Yes or No depending
-# on whether the patient has benign tissue
-#
-Y <- rep("No", 544)
-Y[n544$NEC == 1] <- "Yes"
-Y <- as.factor(Y)
-full <- lrm(NEC ~ TER + PREAFP + PREHCG + SQPOST + REDUC10,
-            data = n544,
-            x = TRUE,
-            y = TRUE)
-probs <- predict(full, type = "fitted.ind")
-thresholds <- seq(0.005, 0.93, length = 50)
-N <- length(thresholds)
-TPR <- numeric(N) # true positive rates
-FPR <- numeric(N) # false positive rates
-for(i in 1:N){
-        mod.pred <- rep("N", 544)
-        mod.pred[probs > thresholds[i]] <- "Y"
-        tb <- table(mod.pred, Y)[2:1,2:1] #confusion matrix
-        TPR[i] <- tb[1,1] / (tb[1,1]+tb[2,1])
-        FPR[i] <- tb[1,2] / (tb[1,2]+tb[2,2])
-}
-if(generate.file)
-        jpeg(filename = "roc-example.jpeg", width = 640, height = 380)
-op <- par(mar = c(4,4,1,1))
-plot(x = FPR, y = TPR,
-     type = "p", pch = 1, cex = 0.5,
-     xlim = c(0,1), ylim = c(0,1),
-     ylab = "True Positive Rate", xlab = "False Positive Rate")
-lines(x = c(0,1), y = c(0,1), col = "gray")
-text(y = 0.996, x = 0.756, label = "10%", cex = 0.8, pos = 1)
-text(y = 0.906, x = 0.445, label = "30%", cex = 0.8, pos = 1)
-if(generate.file) dev.off()
-#
-# Calculate an approximation to the
-# area under the curve (AUC) using
-# mid-point as the height of the
-# approximating rectangles
-#
-FPR <- rev(FPR)
-TPR <- rev(TPR)
-rect.base <- (FPR[-1] - FPR[-length(FPR)]) 
-
-out1 = as.data.frame(FPR) %>% mutate(data = "FPR") %>% rename(value = FPR)
-out2 = as.data.frame(TPR) %>% mutate(data = "TPR") %>% rename(value = TPR)
-out3 = as.data.frame(rect.base) %>% mutate(data = "rect.base") %>% rename(value = rect.base)
-out = bind_rows(out1,out2,out3)
-
-pacman::p_load(openxlsx)
-write.xlsx(as.data.frame(out),'auc.xlsx')
-
-AUC <- (sum(rect.base * TPR[-1]) + sum(rect.base * TPR[-length(TPR)]))/2
-
-
-
-#https://stats.stackexchange.com/questions/145566/how-to-calculate-area-under-the-curve-auc-or-the-c-statistic-by-hand
-
-
-
+rm(avg.mod.B, avg.actual, lim) %>% %>% %>% %>% %>% %>% %>% %>% %>% %>% %>% %>% %>% %>% %>% %>% %>% %>% %>% %>% %>% %>% %>% %>% %>% 
