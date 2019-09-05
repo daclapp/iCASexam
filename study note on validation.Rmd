@@ -403,7 +403,7 @@ car_augment_bins %>%
 car_augment_bins_graph = car_augment_bins %>% 
   group_by(bin_model_2_pred) %>% 
   summarize(model_2_pred_mean = mean(model_2_pred) / mean(car_augment_bins$model_2_pred), #replaces tapply(dt.holdout$mod.A,dt.holdout$bin.A, mean) / mean(dt.holdout$mod.A)
-            actual_mean = mean(claim_cost) / mean(car_augment_bins$claim_cost) #changed to corrected version. code on page 13 I think is wrong. emailed CAS to confirm
+            actual_mean = mean(claim_cost) / mean(car_augment_bins$model_2_pred) #thought this was wrong, but CAS confirmed this is correct and matches the wording in the paper
             ) %>% 
   mutate(bin = row_number())
 
@@ -450,7 +450,7 @@ car_augment_bins %>%
 car_augment_bins_graph = car_augment_bins %>% 
   group_by(bin_model_3_pred) %>% 
   summarize(model_3_pred_mean = mean(model_3_pred) / mean(car_augment_bins$model_3_pred), #replaces tapply(dt.holdout$mod.A,dt.holdout$bin.A, mean) / mean(dt.holdout$mod.A)
-            actual_mean = mean(claim_cost) / mean(car_augment_bins$claim_cost) #changed to corrected version. code on page 13 I think is wrong. emailed CAS to confirm
+            actual_mean = mean(claim_cost) / mean(car_augment_bins$model_3_pred) 
             ) %>% 
   mutate(bin = row_number())
 
@@ -493,7 +493,7 @@ car_augment_bins_graph = car_augment_bins %>%
   group_by(bin_range) %>% 
   summarize(model_2_pred_mean = mean(model_2_pred) / mean(car_augment_bins$model_2_pred),
     model_3_pred_mean = mean(model_3_pred) / mean(car_augment_bins$model_3_pred), #replaces tapply(dt.holdout$mod.A,dt.holdout$bin.A, mean) / mean(dt.holdout$mod.A)
-            actual_mean = mean(claim_cost) / mean(car_augment_bins$claim_cost) #changed to corrected version. code on page 13 I think is wrong. emailed CAS to confirm
+            actual_mean = mean(claim_cost) / mean(car_augment_bins$model_3_pred) 
             ) %>% 
   mutate(bin = row_number())
 
