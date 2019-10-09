@@ -1,2 +1,2 @@
 
-pacman::p_load(dplyr, tidyverse, plotly)
+pacman::p_load(dplyr)
