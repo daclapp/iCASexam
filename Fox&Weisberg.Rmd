@@ -92,17 +92,16 @@ dfbs_duncan
 ```
 
 ```{r}
+pacman::p_load(ggplot2)
+# dfbs_duncan %>% 
+#   ggplot(aes(x = income, y = education))+
+#   geom_point()+
+#   geom_text(data = dfbs_duncan %>% filter(income < -.5 | income > .4),aes(income,education,label=rownames))
 
-dfbs_duncan %>% 
-  ggplot(aes(x = income, y = education))+
-  geom_point()+
-  geom_text(data = dfbs_duncan %>% filter(income < -.5 | income > .4),aes(income,education,label=rownames))
+plot(dfbs_duncan$income,dfbs_duncan$education)
+title("Test")
 
 
-ggplotly(dfbs_duncan %>% 
-  ggplot(aes(x = income, y = education))+
-  geom_point(aes(text = rownames))
-)
 ```
 
 
