@@ -83,7 +83,7 @@ survey_data %>%
   summarize(choice = sum(choice)) #instead of xtabs()
 
 data_mlogit = mlogit.data(data = survey_data,
-                           choice = "choice",
+                           choice = "choice", # y variable
                            shape = "long",
                            varying = 3:6,
                            alt.levels = paste("pos",1:3),
