@@ -59,7 +59,7 @@ cv_error$delta #cross validation results. same as mean of MSE of loocv
 
 ```{r}
 cv_error = rep(0,5)
-for (i in 1:5){
+for (i in 1:5){ #testing 5 degrees of polynomial using loocv. not 5 fold cv
   glm_fit = glm(mpg ~ poly(horsepower,i),
                 data = auto)
   cv_error[i] = cv.glm(auto,glm_fit)$delta[1] #delta 1 and 2 basically the same for loocv
@@ -72,15 +72,16 @@ k-fold cross validation
 ```{r}
 
 #only diff from loocv above is k=10 in cv.glm
+
 set.seed(17)
-cv_error_10 = rep(0,10)
-for (i in 1:10){
+cv_error_5 = rep(0,5)
+for (i in 1:5){
  glm_fit = glm(mpg ~ poly(horsepower,i),
                data = auto)
- cv_error_10[i] = cv.glm(auto,glm_fit,K=10)$delta[1] #first delta is standard cv estimate, second is bias corrected version. ?cv.glm will tell you this
+ cv_error_5[i] = cv.glm(auto,glm_fit,K=10)$delta[1] #first delta is standard cv estimate, second is bias corrected version. ?cv.glm will tell you this
  
 }
-cv_error_10
+plot(cv_error_5)
 ```
 
 5.3.4 learning objective C.2

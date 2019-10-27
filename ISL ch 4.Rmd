@@ -1,7 +1,7 @@
 
 ```{r}
 if (!require("pacman")) install.packages("pacman")
-pacman::p_load(ISLR,boot,MASS)
+pacman::p_load(ISLR,boot,MASS,class)
 source("load_packages.R") #load these last so overwrite functions other packages (like dplyr::select)
 
 ```
@@ -24,10 +24,17 @@ cor(stock_market %>% select(-Direction))
 
 ```{r}
 # volume going up over time is only correlation
-stock_market %>% 
-  mutate(row_num = row_number()) %>% 
-  ggplot(aes(x = row_num,y = Volume))+
-  geom_point()
+# stock_market %>% 
+#   mutate(row_num = row_number()) %>% 
+#   ggplot(aes(x = row_num,y = Volume))+
+#   geom_point()
+
+stock_market2 = stock_market %>% 
+  mutate(row_num = row_number())
+
+plot(stock_market2$row_num,stock_market2$Volume,xlab= "Time",ylab = "Volume")
+title("Title")
+
 ```
 
 ```{r}
@@ -39,10 +46,13 @@ summary(model_glm)
 
 ```{r}
 coef(model_glm) #summary(glm_model)$coef[,4] also works
+# tidy(model_glm) #in broom package, not on syllabus
 ```
 
 ```{r}
 contrasts(stock_market$Direction)
+
+# stock_market %>% count(Direction) #diff as shows counts but not numeric used for each level
 ```
 
 ```{r}
@@ -65,7 +75,7 @@ test = stock_market %>%
 model_glm = glm(Direction ~ Lag1 + Lag2 + Lag3 + Lag4 + Lag5 + Volume,
                 data = train,
                 family = binomial)
-
+summary(model_glm)
 test_augment = test %>% 
   mutate(Direction_pred = predict(model_glm,newdata = test, type = "response")) %>%  # no newdata so will predict on training set. "response" to get results back not in logit terms
   mutate(Direction_pred_label = if_else(Direction_pred>.5,"Up","Down"))
@@ -90,7 +100,6 @@ LDA (Linear Discriminant Analysis)
 ```{r}
 # pacman::p_load(MASS) # done at top before dplyr since causes issue with dplyr::select()
 
-
 model_lda = lda(Direction ~ Lag1 + Lag2, data = train)
 model_lda
 plot(model_lda) #from equation 4.19. Combination of xvars. if large will predict market up, if small predict market Down. bars from each row of the training data. can get from predict()$x
@@ -100,7 +109,10 @@ test_augment = test_augment %>%
   mutate(Direction_pred_label_LDA = predict(model_lda,newdata = test)$class)
 test_augment #notice LDA posterior is prediction DOWN, unlike glm predicting UP
 
-table(test_augment$Direction_pred_label_LDA,test_augment$Direction)
+actual = test_augment$Direction
+pred = test_augment$Direction_pred_label_LDA
+table(actual,pred) #for some reason feeding the vectors in directly drops labels. Book also switch from actual on x axis in book to actual on y axis in code for lab.
+# test_augment %>% count(Direction,Direction_pred_label_LDA) #kind of works but on right format. could spread()
 
 message(paste0("test error rate: ",1-mean(test_augment$Direction_pred_label_LDA == test_augment$Direction)))
 #book builds model on just lag1 and lag2 with 58% accuracy, but you get 56% accuracy predicting up for every
@@ -136,8 +148,8 @@ model_knn = knn(train = train %>% select(xvars) %>% as.matrix,
                 test = test %>% select(xvars) %>% as.matrix,
                 cl = train %>% select(Direction) %>% as.matrix,
                 k = 3)
-
-table(model_knn,test$Direction)
+actual = test$Direction
+table(actual,model_knn)
 
 message(paste0("test error rate: ",1-mean(model_knn == test$Direction)))
 

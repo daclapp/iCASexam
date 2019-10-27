@@ -1,2 +1,2 @@
 
-pacman::p_load(dplyr)
+pacman::p_load(dplyr,readr,tidyr,purrr)

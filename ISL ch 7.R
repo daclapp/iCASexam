@@ -1,11 +1,12 @@
-#test linux
+
 
 if (!require("pacman")) install.packages("pacman")
 pacman::p_load(ISLR,gam,locfit,splines,akima)
 source("load_packages.R") #load these last so overwrite functions other packages (like dplyr::select)
 
+rm(list=ls())
 wage = ISLR::Wage
-wage
+
 
 model_lm = lm(wage~poly(age,4,raw=T),
               data = wage)
@@ -50,7 +51,7 @@ plot(wage$age,wage$high_earner,ylim=c(0,.2)) #text modifies this plot further
 lines(age_data_augment$age,age_data_augment$preds)
 
 #splines
-fit=lm(wage~bs(age,knots=c(25,40,60)),data=Wage) #bs() is B-Spline
+ fit=lm(wage~bs(age,knots=c(25,40,60)),data=Wage) #bs() is B-Spline
 pred=predict(fit,newdata=list(age=age_grid),se=T)
 
 plot(wage$age,wage$wage,col="gray")
